@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.footprint-iac/
+.artifacts/
+*.tgz
+MORNING.md
+.env
+.env.*
+!.env.example
+*.env
+*.pem
+*.key
+.npmrc
+.DS_Store
+.venv/
+__pycache__/
+*.pyc

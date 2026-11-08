@@ -1,0 +1,41 @@
+import { readFile } from 'node:fs/promises';
+import type { InfraGraph } from './graph/types.ts';
+import { validateInfraGraph } from './graph/validation.ts';
+import type { RuntimeSnapshot } from 'footprintjs';
+import { formatSlice, keysReadFromExecutionTree, sliceForKey, stateAt, type ControlDependency } from 'foottrace';
+
+export interface RunEvidence {
+  version: 1;
+  runId: string;
+  stack: string;
+  snapshot: RuntimeSnapshot;
+  controlDeps: Record<string, ControlDependency>;
+  decisions: unknown;
+  narrative: unknown;
+  graph?: InfraGraph;
+  tracePath?: string;
+  traceStatus?: { entries: number; failed: number; flushed: boolean; error?: string };
+}
+
+export async function loadEvidence(path: string): Promise<RunEvidence> {
+  const evidence = JSON.parse(await readFile(path, 'utf8')) as RunEvidence;
+  if (evidence.version !== 1 || !evidence.snapshot || !Array.isArray(evidence.snapshot.commitLog)
+    || !evidence.controlDeps || typeof evidence.controlDeps !== 'object') throw new Error('Unsupported evidence snapshot');
+  if (evidence.graph !== undefined) {
+    evidence.graph = validateInfraGraph(evidence.graph);
+    if (evidence.graph.name !== evidence.stack) throw new Error('Recorded graph belongs to another stack');
+  }
+  return evidence;
+}
+
+/** Read-only record replay: no adapter, workflow code, or external call is involved. */
+export function replay(evidence: RunEvidence, commit?: number) {
+  return stateAt(evidence.snapshot, commit ?? evidence.snapshot.commitLog.length - 1);
+}
+
+export function backwalk(evidence: RunEvidence, key = 'failure') {
+  const slice = sliceForKey(evidence.snapshot.commitLog, key,
+    keysReadFromExecutionTree(evidence.snapshot.executionTree),
+    { controlDeps: id => evidence.controlDeps[id] });
+  return { slice, text: formatSlice(slice) };
+}

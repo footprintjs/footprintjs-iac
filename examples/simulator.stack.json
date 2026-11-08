@@ -1,0 +1,7 @@
+{
+  "name": "simulator-example",
+  "resources": [
+    { "id": "network", "provider": "simulator", "spec": { "cidr": "10.42.0.0/24" } },
+    { "id": "neo", "provider": "simulator", "dependsOn": ["network"], "spec": { "image": "neo:v1", "replicas": 1 } }
+  ]
+}

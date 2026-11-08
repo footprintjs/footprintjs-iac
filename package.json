@@ -1,0 +1,77 @@
+{
+  "name": "footprint-iac",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Compute, storage and network design with recorded infrastructure reconciliation",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./graph": {
+      "types": "./dist/src/graph/index.d.ts",
+      "import": "./dist/src/graph/index.js"
+    },
+    "./graph/render": {
+      "types": "./dist/src/graph/render.d.ts",
+      "import": "./dist/src/graph/render.js"
+    },
+    "./graph/svg": {
+      "types": "./dist/src/graph/svg.d.ts",
+      "import": "./dist/src/graph/svg.js"
+    },
+    "./diagnostics": {
+      "types": "./dist/src/diagnostics/explain.d.ts",
+      "import": "./dist/src/diagnostics/explain.js"
+    },
+    "./system": {
+      "types": "./dist/src/system/index.d.ts",
+      "import": "./dist/src/system/index.js"
+    },
+    "./system/render": {
+      "types": "./dist/src/system/render.d.ts",
+      "import": "./dist/src/system/render.js"
+    },
+    "./binding": {
+      "types": "./dist/src/binding/index.d.ts",
+      "import": "./dist/src/binding/index.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "src",
+    "README.md",
+    "VALIDATION.md",
+    "examples",
+    "integration/neo",
+    "docs"
+  ],
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "build": "tsc",
+    "demo": "node examples/local-demo.ts",
+    "neo:trial": "node integration/neo/run-trial.ts",
+    "iac": "node src/cli.ts",
+    "graph:demo": "node examples/system-design.ts",
+    "capability:demo": "node examples/capabilities.ts",
+    "neo:review": "node integration/neo/run-review.ts",
+    "neo:setup": "node integration/neo/setup.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "footprintjs": "11.0.0",
+    "foottrace": "1.11.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.9.1",
+    "typescript": "5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sanjay1909/footprint-iac.git"
+  }
+}
