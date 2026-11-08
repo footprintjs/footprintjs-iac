@@ -4,9 +4,9 @@ We built an independent FootPrintJS-based IaC library and deployed the actual Ne
 
 Repositories:
 
-- Library and integration: https://github.com/sanjay1909/footprint-iac
+- Library and integration: https://github.com/footprintjs/footprint-iac
 - Consumer application: https://github.com/sanjay1909/neo-agentfootprint
-- Setup and test instructions: https://github.com/sanjay1909/footprint-iac/blob/main/docs/SHARING.md
+- Setup and test instructions: https://github.com/footprintjs/footprint-iac/blob/main/docs/SHARING.md
 
 Both repositories are private. Verify that your GitHub identity has read access to both. If access fails, report which repository needs access; do not treat the other laptop's local paths or localhost URL as accessible here.
 

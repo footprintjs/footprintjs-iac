@@ -1,6 +1,6 @@
 # Reproduce the Neo integration on another laptop
 
-The IaC library and its Neo consumer integration live in [sanjay1909/footprint-iac](https://github.com/sanjay1909/footprint-iac). The application remains in [sanjay1909/neo-agentfootprint](https://github.com/sanjay1909/neo-agentfootprint). Both repositories are private; the recipient needs GitHub read access to both. A repository URL does not grant that access. This handoff uses Git checkouts, not an npm registry release.
+The IaC library and its Neo consumer integration live in [footprintjs/footprint-iac](https://github.com/footprintjs/footprint-iac). The application remains in [sanjay1909/neo-agentfootprint](https://github.com/sanjay1909/neo-agentfootprint). Both repositories are private; the recipient needs GitHub read access to both. A repository URL does not grant that access. This handoff uses Git checkouts, not an npm registry release.
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ kubectl version --client
 Run from a directory where you want the sibling checkouts. Authenticate Git against GitHub first if needed; `gh auth login` is one option when the GitHub CLI is installed.
 
 ```sh
-git clone https://github.com/sanjay1909/footprint-iac.git
+git clone https://github.com/footprintjs/footprint-iac.git
 git clone https://github.com/sanjay1909/neo-agentfootprint.git
 git -C neo-agentfootprint worktree add --detach ../neo-agentfootprint-iac-fixture 6f876df846ae683cc9e9a114a51b638e31615af2
 cd footprint-iac
