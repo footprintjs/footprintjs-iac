@@ -21,6 +21,14 @@ Local simulator report: `.artifacts/system-design/latest-report.json`. The new N
 
 The suite includes actual `SIGKILL` worker tests, not just injected exceptions. A create persisted by the simulator before the worker dies is discovered on restart without another apply. Native FootPrint records from killed runs remain explicitly incomplete. Other tests cover ownership, target binding, omission handling, drift, reverse-order pruning, locking, CLI behavior, and lost capture.
 
+## Portable handoff validation
+
+On November 8, 2026, a clean local Git clone with no installed dependencies or generated artifacts passed `npm ci`, typecheck, all **159 tests**, build and the capability demo. The six added setup/listener regression tests cover isolated targets, foreign cluster refusal, local kubeconfig admission, complete image identities, source/image matching and recovery from a partially bound port-forward.
+
+From that clone, `npm run neo:setup -- /path/to/clean/neo-agentfootprint` rebuilt both images from the pinned Neo source commit, created the separate `footprint-iac-review` kind cluster, loaded content-derived image tags and passed the real capability deployment, readiness, no-op, scale 1→2→1 and HTTP/SQLite checks. A second `neo:review` passed using the saved durable inventory. Occupied port15230 correctly fell back to a free port; the original test server, Deployment UID and pod configuration remained unchanged.
+
+Separate read-only CLI replay reconstructed the saved final shared state exactly, and CLI inspection parsed the real run evidence. These are additional acceptance checks rather than automatic assertions inside `neo:setup`. The package dry run included the portable setup and guides and excluded local state, credentials, recordings and installed dependencies. This validates a fresh clone on the development laptop; another operating system or laptop still needs to run its own checks.
+
 ## Capability base and wrappers
 
 - `npm run capability:demo`: passed high-level compute/storage/network declaration, a separate agentic recipe, explicit simulation binding, expanded graph generation, actual provider concurrency of two, uncertain-create single send, unchanged no-op, failure-to-capability mapping, read-only replay/backwalk, repair and removal retention.
