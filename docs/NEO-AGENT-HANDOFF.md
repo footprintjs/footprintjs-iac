@@ -10,6 +10,8 @@ Repositories:
 
 Both repositories are private. Verify that your GitHub identity has read access to both. If access fails, report which repository needs access; do not treat the other laptop's local paths or localhost URL as accessible here.
 
+Run checks, builds and the deployment directly on your laptop. Do not trigger GitHub CI for this handoff; automatic CI triggers are disabled for now.
+
 Start with `docs/SHARING.md`. It gives clone commands, a separate detached Neo worktree pinned to tested commit `6f876df846ae683cc9e9a114a51b638e31615af2`, library checks, and the actual application deployment command:
 
 ```sh

@@ -2,7 +2,7 @@
 
 Current local library: **footprint-iac 0.3.0**. Capability, binding, retention, graph, concurrency, recovery and consumer acceptance checks passed. The high-level Neo consumer has now also been deployed and tested in the recreated local kind cluster. The earlier raw-stack trial remains documented separately below.
 
-These are recorded results from the development laptop, not a claim that a fresh clone has already run them. Generated `.artifacts/` evidence, kubeconfig, state and logs are private local outputs and are intentionally excluded from Git. Reproduce the checks with the [sharing guide](docs/SHARING.md). CI runs library checks and the simulation demo; the real Neo integration requires a separately authorized private Neo checkout and local Docker/kind.
+These are recorded results from the development laptop, not a claim that a fresh clone has already run them. Generated `.artifacts/` evidence, kubeconfig, state and logs are private local outputs and are intentionally excluded from Git. Reproduce the checks directly on your laptop with the [sharing guide](docs/SHARING.md). Automatic GitHub CI triggers are disabled for now; the saved workflow is manual-only. The real Neo integration runs directly through the local IaC command and requires a separately authorized private Neo checkout and local Docker/kind.
 
 ## Framework
 

@@ -37,6 +37,8 @@ The separate detached Neo worktree pins the application commit used in the origi
 
 The library checks and capability demo must succeed before the Kubernetes test. The capability demo uses the simulator; its success alone does not verify Kubernetes deployment.
 
+For now, run these checks directly on your laptop and push the validated changes directly with Git. Automatic GitHub CI triggers are disabled; the saved workflow is manual-only and is not part of this setup. The `neo:setup` command below builds, deploys and tests locally through the IaC engine.
+
 ## Build, deploy and test the actual application
 
 From the library root:
