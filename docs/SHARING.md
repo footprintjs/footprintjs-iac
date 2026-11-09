@@ -71,6 +71,16 @@ In the test UI, choose **zone audit (artifact)** and check the displayed table. 
 
 ## Repeat and investigate
 
+For a live recording of the application's first creation, prepare a new empty cluster instead of running the review first:
+
+```sh
+npm run neo:prepare-fresh -- ../neo-agentfootprint-iac-fixture
+```
+
+This builds committed Neo source, then creates a uniquely named `footprint-iac-recording-<8 hex characters>` local kind cluster with private credentials and an empty state directory. It loads content-identified images but does **not** create the Neo namespace, Deployment or Service. The genuine `stage: "prepared"` descriptor is saved in `.artifacts/neo/fresh/latest.json`, separately from successful review reports. The separate IaC Lens dashboard can consume that descriptor and show the first apply from pending through provider-confirmed readiness.
+
+After images have already been built on this laptop, omit the source argument to reuse the cached images. Preparation verifies application source files in both images against the recorded committed snapshot before creating the new cluster. The source checkout must still match that commit. Each call creates another isolated cluster and refuses target reuse; retain the printed cluster name for intentional cleanup later with `kind delete cluster --name <that exact recording cluster name>`.
+
 Repeat `neo:setup` to rebuild from committed source and run the review again. If the images and cluster are already prepared and unchanged, rerun only the review:
 
 ```sh

@@ -71,6 +71,7 @@
     "capability:demo": "node examples/capabilities.ts",
     "neo:review": "node integration/neo/run-review.ts",
     "neo:setup": "node integration/neo/setup.ts",
+    "neo:prepare-fresh": "node integration/neo/fresh-prepare.ts",
     "synthesis:demo": "node examples/synthesis.ts"
   },
   "engines": {
