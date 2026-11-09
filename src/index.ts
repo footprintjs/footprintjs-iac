@@ -15,3 +15,5 @@ export { explainRun } from './diagnostics/explain.ts';
 export * from './system/index.ts';
 export { systemToMermaid, systemToSvg } from './system/render.ts';
 export * from './binding/index.ts';
+export * from './progress/index.ts';
+export * from './synthesis/index.ts';

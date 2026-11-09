@@ -1,13 +1,13 @@
 # Validation results
 
-Current local library: **footprint-iac 0.3.0**. Capability, binding, retention, graph, concurrency, recovery and consumer acceptance checks passed. The high-level Neo consumer has now also been deployed and tested in the recreated local kind cluster. The earlier raw-stack trial remains documented separately below.
+Current local library: **footprint-iac 0.4.0**, using pinned **FootPrint 11.1.0** and **Foottrace 1.12.0**. Capability, binding, retention, graph, concurrency, recovery, recorder-backed synthesis and live progress checks passed. Historical Neo integration and clean-clone results are retained below with their original scope.
 
 These are recorded results from the development laptop, not a claim that a fresh clone has already run them. Generated `.artifacts/` evidence, kubeconfig, state and logs are private local outputs and are intentionally excluded from Git. Reproduce the checks directly on your laptop with the [sharing guide](docs/SHARING.md). Automatic GitHub CI triggers are disabled for now; the saved workflow is manual-only. The real Neo integration runs directly through the local IaC command and requires a separately authorized private Neo checkout and local Docker/kind.
 
 ## Framework
 
 - `npm run check`: passed.
-- `npm test`: **159 passed, 0 failed, 0 skipped**.
+- `npm test`: **181 passed, 0 failed, 0 skipped**.
 - `npm run build`: passed; the compiled library imports successfully.
 - `npm run demo`: passed creation, response-loss reconciliation, no-op planning, failed update, state replay, backward investigation, and repair.
 - `npm run graph:demo`: passed fluent serial/fork/join declaration, actual provider concurrency of two, one create send despite a lost response, unchanged no-op, matching recorded graph digest, failed update investigation, read-only replay and repair.
@@ -20,6 +20,18 @@ Local simulator report: `.artifacts/system-design/latest-report.json`. The new N
 - Package dry run: generated artifacts and installed dependencies are excluded. Nothing was published.
 
 The suite includes actual `SIGKILL` worker tests, not just injected exceptions. A create persisted by the simulator before the worker dies is discovered on restart without another apply. Native FootPrint records from killed runs remain explicitly incomplete. Other tests cover ownership, target binding, omission handling, drift, reverse-order pruning, locking, CLI behavior, and lost capture.
+
+## Recorded synthesis and live progress
+
+- Registry versions were checked directly before upgrading to FootPrint 11.1.0 and Foottrace 1.12.0. The full regression suite passes with those exact pins, including independent native JSONL replay and parallel write provenance.
+- Six progress tests cover pending/deploying/provider-confirmed-ready states, no-op resets, parallel failure and skipped dependents, confirmed deletion, malformed/mixed-run rejection, subscriber isolation and persisted progress replay.
+- Sixteen synthesis tests cover complete desired-state Kubernetes JSON/YAML, dependency-first ordering, deterministic files and hashes, source mappings, backend compatibility, native CloudFormation references, retention and reference cycles, plus checked failure/finalization behavior.
+- `npm run synthesis:demo` passed. Kubernetes output uses the actual Neo desired graph. The AWS object-storage profile produces a narrow S3 CloudFormation JSON/YAML example with a synthetic account and no provider calls. Validation is structural; no live AWS deployment is claimed. Binding selection remains static metadata, while resource synthesis and finalization use native recorded stages.
+- Consumer-supplied native recorders can attach through `InfraEngine({ recorders })`. Apply evidence now includes the native build-time structure for Flow Lens.
+
+The separate [footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens) consumer passed 14 headless TypeScript and real HTTP/SSE tests, typecheck, and standalone/optional-React builds. Headless public imports were also checked with renderer resolution explicitly blocked. Its root and `/core` imports load no React or DOM adapter; `/react` and the execution-evidence surface are separate optional/lazy entries.
+
+Browser acceptance verified initial grey resources, live recorded deploying/ready transitions, injected failure with skipped dependents, resource inspection and native Flow Lens cursor navigation. Against the existing Neo Kubernetes fixture, Lens received nine native progress events for three provider-confirmed ready resources, all with action `noop`. Independent checks preserved Deployment UID and pod template and confirmed the original Neo server remained healthy. The viewer also exposes generated Kubernetes and labelled export-only CloudFormation artifacts. These browser checks used the local simulator and prepared Neo fixture, not live cloud services.
 
 ## Portable handoff validation
 

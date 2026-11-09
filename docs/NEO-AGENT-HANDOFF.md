@@ -5,10 +5,11 @@ We built an independent FootPrintJS-based IaC library and deployed the actual Ne
 Repositories:
 
 - Library and integration: https://github.com/footprintjs/footprint-iac
+- Optional headless/React viewer: https://github.com/footprintjs/footprint-iac-lens
 - Consumer application: https://github.com/sanjay1909/neo-agentfootprint
 - Setup and test instructions: https://github.com/footprintjs/footprint-iac/blob/main/docs/SHARING.md
 
-Both repositories are private. Verify that your GitHub identity has read access to both. If access fails, report which repository needs access; do not treat the other laptop's local paths or localhost URL as accessible here.
+The repositories are private. Verify that your GitHub identity has read access to the core, Neo and the optional viewer if you use it. If access fails, report which repository needs access; do not treat the other laptop's local paths or localhost URL as accessible here.
 
 Run checks, builds and the deployment directly on your laptop. Do not trigger GitHub CI for this handoff; automatic CI triggers are disabled for now.
 
@@ -35,3 +36,5 @@ Inspect the emitted system design, binding mappings, resource graph and saved ex
 Keep the library independent. Recommend how Neo should consume it through a small app-owned `infra/` directory and an explicit composition root, without replacing the current development workflow. Use small helpers, stages and subflows, with each flowchart's construction in its own file. Future domain wrappers should compose the foundation rather than add domain switches to its engine.
 
 Report what you verified on this laptop, failures with evidence, unsupported requirements and the smallest next consumer integration step. This handoff requests review and reproduction; it does not establish production readiness or general multi-cloud support.
+
+The current core also exposes native deployment progress and recorded Kubernetes/CloudFormation output synthesis. Review docs/PROGRESS.md and docs/OUTPUTS.md. The optional separate footprint-iac-lens repository keeps shared logic in plain TypeScript and its React surface behind /react; follow its README to run the live graph locally. Do not trigger CI.

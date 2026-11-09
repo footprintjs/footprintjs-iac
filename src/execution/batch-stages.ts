@@ -1,6 +1,7 @@
 import { select } from 'footprintjs';
 import type { ExecutionScope, ExecutionStage } from './scope.ts';
 import type { OperationBatch, OperationResult } from './types.ts';
+import { recordProgress } from './progress.ts';
 
 export const executionBranch = (resourceId: string) => `execute-${resourceId}`;
 export const skipBatchBranch = (index: number) => `skip-batch-${index}`;
@@ -12,11 +13,12 @@ export function selectBatchStage(batch: OperationBatch) {
   ]);
 }
 
-export function skipBatchStage(batch: OperationBatch, results: Record<string, unknown>): ExecutionStage {
+export function skipBatchStage(batch: OperationBatch, results: Record<string, unknown>, runId: string): ExecutionStage {
   return scope => {
     for (const operation of batch.operations) {
       scope.publishResult(operation.resource.id, { status: 'skipped', reason: scope.failure });
       results[operation.resource.id] = { status: 'skipped' };
+      recordProgress(scope, runId, operation, 'skipped', 'A preceding operation failed');
     }
   };
 }

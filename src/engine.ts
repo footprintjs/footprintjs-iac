@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
+import type { CombinedRecorder } from 'footprintjs';
 import { buildPlan } from './planner.ts';
 import { assertExecutableGraph } from './graph/validation.ts';
 import { ReconcileStrategy } from './strategies.ts';
 import { createApplyChart } from './execution/create-apply-chart.ts';
 import { createOperationExecutor } from './execution/execute-operation.ts';
 import { ExecutionPersistence } from './execution/persistence.ts';
-import { runApplyChart } from './execution/run-apply-chart.ts';
+import { INTERNAL_CONTROL_RECORDER_ID, runApplyChart } from './execution/run-apply-chart.ts';
 import { concurrencyLimit } from './execution/schedule.ts';
 import type { ExecutionFailure } from './execution/types.ts';
 import type { FailureStrategy, Plan, ResourceAdapter, Stack, StateStore } from './types.ts';
@@ -29,14 +30,18 @@ export class InfraEngine {
   private readonly strategy: FailureStrategy;
   private readonly traceDirectory: string | undefined;
   private readonly maxConcurrency: number;
+  private readonly recorders: readonly CombinedRecorder[];
 
-  constructor(options: { adapters: ResourceAdapter[]; store: StateStore; strategy?: FailureStrategy; traceDirectory?: string; maxConcurrency?: number }) {
+  constructor(options: { adapters: ResourceAdapter[]; store: StateStore; strategy?: FailureStrategy; traceDirectory?: string; maxConcurrency?: number; recorders?: CombinedRecorder[] }) {
     this.adapters = new Map(options.adapters.map(adapter => [adapter.name, adapter]));
     if (this.adapters.size !== options.adapters.length) throw new Error('Duplicate provider adapter names');
     this.store = options.store;
     this.strategy = options.strategy ?? new ReconcileStrategy();
     this.traceDirectory = options.traceDirectory === undefined ? undefined : resolve(options.traceDirectory);
     this.maxConcurrency = concurrencyLimit(options.maxConcurrency);
+    this.recorders = [...(options.recorders ?? [])];
+    if (new Set(this.recorders.map(recorder => recorder.id)).size !== this.recorders.length) throw new Error('Duplicate deployment recorder IDs');
+    if (this.recorders.some(recorder => recorder.id === INTERNAL_CONTROL_RECORDER_ID)) throw new Error('The internal control recorder ID is reserved');
   }
 
   async plan(stack: Stack, options: { prune?: boolean } = {}): Promise<Plan> {
@@ -59,8 +64,8 @@ export class InfraEngine {
       const runId = randomUUID();
       const results: Record<string, unknown> = {};
       const execute = createOperationExecutor({ adapters: this.adapters, state, runId, strategy: this.strategy, persistence });
-      const chart = createApplyChart(plan, execute, results, this.maxConcurrency);
-      const recorded = await runApplyChart(chart, runId, this.traceDirectory);
+      const chart = createApplyChart(plan, execute, results, this.maxConcurrency, runId);
+      const recorded = await runApplyChart(chart, runId, this.traceDirectory, this.recorders);
       const graph = (requested as Stack & { kind?: unknown }).kind === 'infra-graph' ? requested : undefined;
       const evidencePath = await this.store.saveEvidence(runId, {
         version: 1, runId, stack: requested.name, ...recorded,

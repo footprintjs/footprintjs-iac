@@ -1,6 +1,6 @@
 {
   "name": "footprint-iac",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Compute, storage and network design with recorded infrastructure reconciliation",
@@ -36,6 +36,18 @@
     "./binding": {
       "types": "./dist/src/binding/index.d.ts",
       "import": "./dist/src/binding/index.js"
+    },
+    "./progress": {
+      "types": "./dist/src/progress/index.d.ts",
+      "import": "./dist/src/progress/index.js"
+    },
+    "./synthesis": {
+      "types": "./dist/src/synthesis/index.d.ts",
+      "import": "./dist/src/synthesis/index.js"
+    },
+    "./integration/neo": {
+      "types": "./dist/integration/neo/index.d.ts",
+      "import": "./dist/integration/neo/index.js"
     }
   },
   "files": [
@@ -45,7 +57,8 @@
     "VALIDATION.md",
     "examples",
     "integration/neo",
-    "docs"
+    "docs",
+    "dist/integration/neo"
   ],
   "scripts": {
     "check": "tsc --noEmit",
@@ -57,14 +70,16 @@
     "graph:demo": "node examples/system-design.ts",
     "capability:demo": "node examples/capabilities.ts",
     "neo:review": "node integration/neo/run-review.ts",
-    "neo:setup": "node integration/neo/setup.ts"
+    "neo:setup": "node integration/neo/setup.ts",
+    "synthesis:demo": "node examples/synthesis.ts"
   },
   "engines": {
     "node": ">=24"
   },
   "dependencies": {
-    "footprintjs": "11.0.0",
-    "foottrace": "1.11.1"
+    "footprintjs": "11.1.0",
+    "foottrace": "1.12.0",
+    "yaml": "2.9.1"
   },
   "devDependencies": {
     "@types/node": "24.9.1",

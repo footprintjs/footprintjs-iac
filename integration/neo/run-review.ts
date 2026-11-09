@@ -34,7 +34,7 @@ export async function runNeoReview(context: string) {
   });
   const report: Record<string, unknown> = {
     status: 'running', startedAt: new Date().toISOString(), context, kubeconfig, namespace: NEO_NAMESPACE,
-    directory, stateDirectory, sourceCommit: source.commit, frameworkVersion: '0.3.0', images,
+    directory, stateDirectory, sourceCommit: source.commit, frameworkVersion: '0.4.0', images,
     scope: 'Actual Kubernetes-hosted Neo Node/UI and Python fixture; scripted model and seeded SQLite; no live collectors.',
   };
   await writeJson(join(directory, 'design.json'), design);

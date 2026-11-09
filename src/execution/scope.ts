@@ -8,12 +8,16 @@ export class ExecutionScope extends ScopeFacade {
 
   /**
    * Siblings own disjoint root result keys, so joining reads each actual writer.
-   * Native setGlobal is marked internal in footprintjs 11.0.0. Keep this use
+   * Native setGlobal is marked internal in footprintjs 11.1.0. Keep this use
    * isolated and exactly pinned; upgrades must pass replay/provenance tests.
    * No child writes shared failure flags: only the settled root join does so.
    */
   publishResult(resourceId: string, result: OperationResult): void {
     this.setGlobal(`result:${resourceId}`, result);
+  }
+
+  publishProgress(resourceId: string, value: unknown): void {
+    this.setGlobal(`progress:${resourceId}`, value);
   }
 }
 

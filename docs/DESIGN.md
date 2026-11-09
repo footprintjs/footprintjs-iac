@@ -32,7 +32,7 @@ Graph types, fluent composition, synthesis, validation and rendering have separa
 
 Flowchart creation belongs in a dedicated create-apply-chart module. Stage behavior, scheduling, operation reconciliation, persistence coordination and trace lifecycle are separate helpers. Each future flowchart or subflow gets its own construction file. There is no global service locator and no automatic dependency discovery from folders.
 
-An isolated scope adapter publishes distinct per-resource results through the pinned FootPrint 11.0.0 native root-write funnel so a join can record exact input keys. Its ScopeFacade.setGlobal method is exported by the advanced entry point but marked internal; dependency upgrades require the parallel result, native replay and failure-backwalk regressions. Shared failure state is written only by the root join.
+An isolated scope adapter publishes distinct per-resource results through the pinned FootPrint 11.1.0 native root-write funnel so a join can record exact input keys. Its ScopeFacade.setGlobal method is exported by the advanced entry point but marked internal; dependency upgrades require the parallel result, native replay and failure-backwalk regressions. Shared failure state is written only by the root join.
 
 The modules are small internal libraries with explicit imports. They can become separately versioned packages when there is an actual second consumer and a stable release boundary; a package per helper would add independent publishing overhead without improving dependency direction.
 

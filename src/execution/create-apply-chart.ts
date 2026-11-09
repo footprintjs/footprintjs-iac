@@ -7,8 +7,8 @@ import { executionScopeFactory, type ExecutionScope } from './scope.ts';
 import type { OperationExecutor } from './types.ts';
 
 /** The only file that assembles the native apply chart; stage behavior lives beside it. */
-export function createApplyChart(plan: Plan, execute: OperationExecutor, results: Record<string, unknown>, maxConcurrency: number) {
-  let chart = flowChart<void, ExecutionScope>('Load desired resources', loadDesiredStage(plan), 'load-desired')
+export function createApplyChart(plan: Plan, execute: OperationExecutor, results: Record<string, unknown>, maxConcurrency: number, runId: string) {
+  let chart = flowChart<void, ExecutionScope>('Load desired resources', loadDesiredStage(plan, runId), 'load-desired')
     .setScopeFactory(executionScopeFactory);
   for (const batch of scheduleOperations(plan, maxConcurrency)) {
     if (batch.operations.length === 1) {
@@ -17,15 +17,15 @@ export function createApplyChart(plan: Plan, execute: OperationExecutor, results
       chart = chart.addDeciderFunction(`Can proceed: ${id}`, scope => decide(scope, [
         { when: { failed: { eq: false } }, then: executionBranch(id), label: 'No preceding operation failed' },
       ], `skip-${id}`), `gate-${id}`)
-        .addFunctionBranch(executionBranch(id), `Reconcile ${id}`, reconcileResourceStage(operation, execute, results, true))
-        .addFunctionBranch(`skip-${id}`, `Skip ${id}`, skipResourceStage(operation, results))
+        .addFunctionBranch(executionBranch(id), `Reconcile ${id}`, reconcileResourceStage(operation, execute, results, true, runId))
+        .addFunctionBranch(`skip-${id}`, `Skip ${id}`, skipResourceStage(operation, results, runId))
         .setDefault(`skip-${id}`).end();
       continue;
     }
     const selector = chart.addSelectorFunction(`Can proceed: batch ${batch.index}`, selectBatchStage(batch), `gate-batch-${batch.index}`);
     for (const operation of batch.operations) selector.addFunctionBranch(
-      executionBranch(operation.resource.id), `Reconcile ${operation.resource.id}`, reconcileResourceStage(operation, execute, results, false));
-    selector.addFunctionBranch(skipBatchBranch(batch.index), `Skip batch ${batch.index}`, skipBatchStage(batch, results));
+      executionBranch(operation.resource.id), `Reconcile ${operation.resource.id}`, reconcileResourceStage(operation, execute, results, false, runId));
+    selector.addFunctionBranch(skipBatchBranch(batch.index), `Skip batch ${batch.index}`, skipBatchStage(batch, results, runId));
     chart = selector.end().addFunction(`Join batch ${batch.index}`, joinBatchStage(batch, results), `join-batch-${batch.index}`);
   }
   return chart.build();

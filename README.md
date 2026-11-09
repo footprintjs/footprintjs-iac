@@ -1,8 +1,8 @@
 # Footprint IaC — capabilities, system graphs and recorded infrastructure
 
-A TypeScript infrastructure framework built on **FootPrint 11.0.0** and **Foottrace 1.11.1**. Its capability API describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the existing engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk.
+A TypeScript infrastructure framework built on **FootPrint 11.1.0** and **Foottrace 1.12.0**. Foundation version **0.4.0** describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk. Native recorders also drive live deployment progress and checked output generation.
 
-This is an executable prototype with a simulator and a Kubernetes adapter. It is not a production deployment service.
+This is an executable prototype with a simulator, a Kubernetes adapter and recorded native artifact generation. The separate [IaC Lens](https://github.com/footprintjs/footprint-iac-lens) supplies a live system view and Flow Lens evidence inspection. This remains a single-machine foundation, not a production deployment service.
 
 Start with the [capability and wrapper guide](docs/CAPABILITIES.md). See [VALIDATION.md](VALIDATION.md) for current checks and the earlier completed real Neo Kubernetes trial. The [design notes](docs/DESIGN.md) define graph semantics and implementation boundaries.
 
@@ -36,7 +36,7 @@ const binding = bindSystem(design, simulationProfile({
 
 The base contains three capability families. Identity/access and boundaries cross those families. Store purpose, data model, sharing, durability, expiration, retention and replication are separate properties. Recipe defaults are visible. Declaration and binding are synchronous; providers are touched only through the planner/engine.
 
-The built-in capability binding profile is **simulation-only**. It records the requested behavior as simulated; it does not provision Redis/PostgreSQL or verify production durability/security. The explicit lower-level Kubernetes resource adapter remains available separately. The [Neo consumer profile](integration/neo/README.md#high-level-capability-review) now supplies a narrow real Kubernetes implementation for its packaged local service and HTTP endpoint; `npm run neo:review -- --context kind-footprint-iac-test` deploys it and leaves a review server running. Unsupported/ambiguous bindings and unsupported required boundary rules fail explicitly.
+The built-in capability binding profile is **simulation-only**. It records the requested behavior as simulated; it does not provision Redis/PostgreSQL or verify production durability/security. The explicit lower-level Kubernetes resource adapter remains available separately. The [Neo consumer profile](integration/neo/README.md#capability-binding-and-execution) supplies a narrow real Kubernetes implementation for its packaged local service and HTTP endpoint; `npm run neo:review -- --context kind-footprint-iac-test` deploys it and leaves a review server running. Unsupported/ambiguous bindings and unsupported required boundary rules fail explicitly.
 
 `.use(recipe)` supports domain wrappers as compositions over the same public base. The separate agentic recipe example demonstrates that extension point; the core has no agentic/banking system-type switch. See [CAPABILITIES.md](docs/CAPABILITIES.md) for semantics and limits.
 
@@ -54,8 +54,11 @@ Requires Node.js 24 or newer.
 npm ci
 npm run check
 npm test
+npm run build
 npm run demo
 ```
+
+Run checks, builds and deployments directly on the local machine. Automatic GitHub CI triggers remain disabled; no workflow run is required for these commands.
 
 The demo creates a simulated network and app, loses one provider response, reconciles without a duplicate send, verifies a no-op plan, injects an update failure, replays and backwalks the saved failure, then repairs it. Its files remain under the printed `.artifacts/demo-*` directory.
 
@@ -77,6 +80,55 @@ npm run iac -- replay /absolute/path/to/run.json --commit 0
 ```
 
 `npm run build` produces the importable library in `dist/src`. The package remains private and has not been published.
+
+## Recorded native outputs
+
+With a Kubernetes-bound design, export the complete desired graph through native output recorders:
+
+```ts
+import { synthesize, kubernetesOutput } from 'footprint-iac/synthesis';
+
+const output = await synthesize(binding.graph, {
+  outputs: [kubernetesOutput(), kubernetesOutput({ format: 'yaml' })],
+});
+// output.artifacts: files, hashes, native/resource mappings and declared limitations.
+// output.snapshot + output.structure: native synthesis recording for Flow Lens.
+```
+
+The synthesis flow records each desired resource and explicitly finalizes its output projections. It exports the whole desired graph independently of a deployment's create/update/no-op plan. Native recorder isolation cannot hide a broken output: incomplete coverage, callback failures, unsafe paths, invalid encoding and hash mismatches fail compilation. Generation performs no provider calls.
+
+Kubernetes output produces JSON/YAML object lists in declared dependency order. A separate, narrow AWS object-storage profile produces CloudFormation JSON/YAML for persistent object stores using S3. It is **export-only**: no AWS deployment, schema service, authorization or live durability verification runs. Backend-specific references and retention need their own supported mappings. Terraform remains an extension point. Read the [output guide](docs/OUTPUTS.md) for the supported scope and examples.
+
+```sh
+npm run synthesis:demo
+```
+
+The demo writes native Kubernetes and CloudFormation files, source graphs and their synthesis recordings under `.artifacts/synthesis`. Binding selection itself remains pure compilation with static decision metadata; the new native recording covers generation from the bound graph and checked finalization.
+
+## Live progress and IaC Lens
+
+Attach the existing native recorder extension to an engine:
+
+```ts
+import { InfraEngine, FileStateStore, SimulatorAdapter } from 'footprint-iac';
+import { createDeploymentRecorder } from 'footprint-iac/progress';
+
+const progress = createDeploymentRecorder();
+const stop = progress.subscribe(event => {
+  console.log(event.resourceId, event.status, event.action);
+});
+const engine = new InfraEngine({
+  adapters: [new SimulatorAdapter()],
+  store: new FileStateStore('.artifacts/progress-example'),
+  recorders: [progress],
+});
+try { await engine.apply(binding.graph); }
+finally { stop(); }
+```
+
+This example uses a simulation binding; provide the matching provider adapter for a real binding. Progress comes from recorded stages: `pending`, `deploying`, `ready`, `failed`, `skipped` and `deleted`. Ready follows provider confirmation, including on a no-op; a timer or successful API send does not make a node ready. New saved apply evidence includes its native build-time `structure` alongside the snapshot, decisions and narrative.
+
+The independently versioned [footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens) repository supplies the separate dashboard. Its root and `/core` APIs expose TypeScript models and transport without React imports; `/react` provides the optional React surface using Flow Lens. The resource system chart and native execution chart are separate views: infrastructure relationships describe the system, while the execution recording shows what this run did. See [PROGRESS.md](docs/PROGRESS.md) for recorder usage, status semantics and the UI boundary.
 
 ## Lower-level resource graph API
 
@@ -146,10 +198,13 @@ npm run iac -- inspect /absolute/path/to/run.json
 - `src/execution/create-apply-chart.ts`: the single apply flowchart construction file.
 - `src/execution/*-stages.ts`: small native stage functions.
 - `src/execution/execute-operation.ts`, `persistence.ts`, `schedule.ts`: lifecycle, durable write ordering and bounded scheduling.
+- `src/progress`: native deployment-event validation, live projection and subscribers.
+- `src/synthesis/create-synthesis-chart.ts`: the dedicated native synthesis chart construction.
+- `src/synthesis`: checked output recorders, native encodings, references and source mappings.
 - `src/diagnostics/explain.ts`: structured read-only investigation.
 - `integration/neo/graph.ts`: consumer composition.
 
-Parallel result publication uses one isolated scope adapter in `src/execution/scope.ts`, through the pinned FootPrint 11.0.0 native recording funnel. The underlying `ScopeFacade.setGlobal` API is marked internal by FootPrint; upgrades require its provenance/replay tests. Each resource writes a unique result key, while joins own shared failure state.
+Parallel result and progress publication uses one isolated scope adapter in `src/execution/scope.ts`, through the exactly pinned FootPrint 11.1.0 native recording funnel. The underlying `ScopeFacade.setGlobal` API is marked internal by FootPrint; upgrades require its provenance/replay tests. Each resource writes disjoint result/progress keys, while joins own shared failure state.
 
 ## Design
 
@@ -158,6 +213,8 @@ Parallel result publication uses one isolated scope adapter in `src/execution/sc
 | `Resource`, `Stack`, `ResourceAdapter` | Desired resources and explicit provider ports. |
 | `buildPlan` | Refresh observed state; validate dependencies and ownership; choose create, update, verify, delete or no-op. |
 | `InfraEngine` | Convert the ordered plan into FootPrint stages and explicit proceed/skip decisions. |
+| `createDeploymentRecorder` | Project native resource progress into sequenced, run-scoped observations. |
+| `synthesize`, output adapters | Record complete desired-resource compilation and finalize native files with source mappings. |
 | `ReconcileStrategy` | Bound retries, stop on unknown observations, and require an adapter's safe-retry capability. |
 | `FileStateStore` | Persist intent before effects, checkpoint inventory, and exclude concurrent local applies. |
 | Foottrace | Replay recorded state and query recorded data/control dependencies. |

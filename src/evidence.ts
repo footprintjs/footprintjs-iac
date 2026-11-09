@@ -12,6 +12,8 @@ export interface RunEvidence {
   controlDeps: Record<string, ControlDependency>;
   decisions: unknown;
   narrative: unknown;
+  /** Native build-time chart shape for execution viewers. */
+  structure?: unknown;
   graph?: InfraGraph;
   tracePath?: string;
   traceStatus?: { entries: number; failed: number; flushed: boolean; error?: string };
