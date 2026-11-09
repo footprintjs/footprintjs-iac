@@ -41,6 +41,10 @@
       "types": "./dist/src/progress/index.d.ts",
       "import": "./dist/src/progress/index.js"
     },
+    "./connections": {
+      "types": "./dist/src/connections/index.d.ts",
+      "import": "./dist/src/connections/index.js"
+    },
     "./synthesis": {
       "types": "./dist/src/synthesis/index.d.ts",
       "import": "./dist/src/synthesis/index.js"

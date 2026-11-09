@@ -130,6 +130,25 @@ This example uses a simulation binding; provide the matching provider adapter fo
 
 The independently versioned [footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens) repository supplies the separate dashboard. Its root and `/core` APIs expose TypeScript models and transport without React imports; `/react` provides the optional React surface using Flow Lens. The resource system chart and native execution chart are separate views: infrastructure relationships describe the system, while the execution recording shows what this run did. See [PROGRESS.md](docs/PROGRESS.md) for recorder usage, status semantics and the UI boundary.
 
+Connection checks run in a separate native FootPrint chart, after resources are ready:
+
+```ts
+import { checkConnections, createConnectionRecorder, KubernetesConnectionAdapter } from 'footprint-iac/connections';
+
+const connections = createConnectionRecorder();
+connections.subscribe(event => console.log(event.connectionId, event.status));
+const checked = await checkConnections({
+  graph: binding.graph,
+  adapter: new KubernetesConnectionAdapter({ context, kubeconfig, namespace, container: 'node', path: '/health' }),
+  recorders: [connections],
+  traceDirectory: '.artifacts/connection-traces',
+});
+```
+
+The adapter supports a narrow, same-namespace Kubernetes Service → Deployment HTTP check. It verifies ownership and ready EndpointSlice backends, then executes a fixed Node probe in an existing ready target pod. The probe resolves the Service DNS name and sends an HTTP health request through its ClusterIP. Connected requires HTTP 200 with JSON `status: "ok"` and stable Service/backend identities before and after the request. It records the source pod, route, DNS answers, HTTP result, latency and failure details; it does not use a deployment port-forward to claim Service connectivity. The source container must have Node available. Unsupported targets fail explicitly.
+
+Native `checking`, `connected` and `failed` events drive Lens communication edges. Each check saves its snapshot, structure, decisions, narrative and optional JSONL trace, including failed partial observations. Replay and backwalk inspect those captured inputs and outcomes without rerunning the network request. Checks are point-in-time observations from the recorded pod vantage point; they do not establish arbitrary-client reachability or continuous traffic monitoring. A failed connection does not rewrite a successful resource deployment as failed.
+
 ## Lower-level resource graph API
 
 ```ts

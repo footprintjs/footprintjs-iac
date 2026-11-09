@@ -1,15 +1,14 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { FlowChartExecutor, type CombinedRecorder } from 'footprintjs';
+import { FlowChartExecutor, type CombinedRecorder, type FlowChart } from 'footprintjs';
 import { controlDepRecorder } from 'footprintjs/trace';
 import { fileSink, type FileSink } from 'footprintjs/sinks';
 import { errorMessage } from '../util.ts';
-import type { createApplyChart } from './create-apply-chart.ts';
 
 export const INTERNAL_CONTROL_RECORDER_ID = 'iac-internal-control-dependencies';
 
 /** Runtime capture is best-effort and independent of the operation journal's durability. */
-export async function runApplyChart(chart: ReturnType<typeof createApplyChart>, runId: string, traceDirectory?: string, recorders: readonly CombinedRecorder[] = []) {
+export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runId: string, traceDirectory?: string, recorders: readonly CombinedRecorder[] = []) {
   const tracePath = traceDirectory ? join(traceDirectory, `${runId}.jsonl`) : undefined;
   let traceSink: FileSink | undefined;
   let traceError: string | undefined;
