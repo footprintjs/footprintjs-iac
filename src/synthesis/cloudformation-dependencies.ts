@@ -12,9 +12,15 @@ export function validateCloudFormationDependencies(resources: readonly Resource[
     if (Array.isArray(getAtt) && typeof getAtt[0] === 'string' && sourceByNative.has(getAtt[0])) found.add(sourceByNative.get(getAtt[0])!);
     for (const item of Object.values(value)) references(item, found);
   }
-  validateDependencies(resources.map(resource => {
+  const resolved = resources.map(resource => {
     const found = new Set(resource.dependsOn ?? []);
     references(native.get(resource.id)!, found);
     return { ...resource, dependsOn: [...found] };
-  }));
+  });
+  validateDependencies(resolved);
+  // Any ancestor path begins with a direct resolved edge. Neither explicit
+  // DependsOn nor implicit Ref/GetAtt ancestors may escape retention admission.
+  if (resolved.some(resource => resource.lifecycle?.retainOnRemoval === true && resource.dependsOn.length)) {
+    throw new Error('CloudFormation export cannot preserve framework retained dependency closure');
+  }
 }

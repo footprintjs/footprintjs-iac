@@ -18,7 +18,6 @@ const writeJson = (path: string, value: unknown) => writeFile(path, JSON.stringi
 export async function runNeoReview(context: string) {
   const target = reviewTarget(root, context);
   const kubeconfig = target.kubeconfig;
-  process.env.KUBECONFIG = kubeconfig;
   const reviews = resolve(root, '.artifacts/neo/review');
   await mkdir(reviews, { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(join(reviews, 'run-'));
@@ -29,7 +28,7 @@ export async function runNeoReview(context: string) {
   const binding = bindSystem(design, profile);
   const stateDirectory = target.stateDirectory ?? join(directory, 'state');
   const engine = new InfraEngine({
-    adapters: [new KubernetesAdapter({ context, namespace: NEO_NAMESPACE, timeoutMs: 180_000 })],
+    adapters: [new KubernetesAdapter({ context, kubeconfig, namespace: NEO_NAMESPACE, timeoutMs: 180_000 })],
     store: new FileStateStore(stateDirectory), traceDirectory: join(directory, 'traces'), maxConcurrency: 2,
   });
   const report: Record<string, unknown> = {

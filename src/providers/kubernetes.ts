@@ -8,6 +8,8 @@ export type CommandRunner = (command: string, args: readonly string[], options: 
 
 export interface KubernetesOptions {
   context: string;
+  /** Per-command credential/config selector; this is not a cluster identity. */
+  kubeconfig?: string;
   namespace?: string;
   kubectl?: string;
   runner?: CommandRunner;
@@ -117,18 +119,28 @@ export class KubernetesAdapter implements ResourceAdapter {
   readonly name = 'kubernetes';
   readonly supportsSafeRetry = true;
   readonly scope: string;
-  private readonly options: KubernetesOptions;
+  private readonly options: Readonly<KubernetesOptions>;
   private readonly runner: CommandRunner;
   private readonly timeoutMs: number;
 
   constructor(options: KubernetesOptions) {
-    if (!options.context?.trim() || options.context.startsWith('-')) throw new Error('An explicit Kubernetes context is required.');
-    if (options.namespace !== undefined && !dnsName.test(options.namespace)) throw new Error('Invalid Kubernetes namespace.');
-    if (options.timeoutMs !== undefined && (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0)) throw new Error('timeoutMs must be positive.');
-    this.options = options;
-    this.scope = JSON.stringify({ context: options.context, namespace: options.namespace ?? null });
-    this.runner = options.runner ?? runKubectl;
-    this.timeoutMs = options.timeoutMs ?? 120_000;
+    // Capture primitive selectors and the runner once. Caller mutation cannot retarget an in-flight operation.
+    const selected: KubernetesOptions = {
+      context: options.context, namespace: options.namespace, kubeconfig: options.kubeconfig,
+      kubectl: options.kubectl, runner: options.runner, timeoutMs: options.timeoutMs,
+    };
+    if (typeof selected.context !== 'string' || !selected.context.trim() || selected.context.startsWith('-')) throw new Error('An explicit Kubernetes context is required.');
+    if (selected.namespace !== undefined && !dnsName.test(selected.namespace)) throw new Error('Invalid Kubernetes namespace.');
+    if (selected.timeoutMs !== undefined && (!Number.isFinite(selected.timeoutMs) || selected.timeoutMs <= 0)) throw new Error('timeoutMs must be positive.');
+    if (selected.kubeconfig !== undefined && (typeof selected.kubeconfig !== 'string' || !selected.kubeconfig.trim()
+      || selected.kubeconfig.length > 4096 || selected.kubeconfig.startsWith('-') || /[\x00-\x1f\x7f]/.test(selected.kubeconfig))) {
+      throw new Error('kubeconfig must be a nonempty path without control characters or a leading dash.');
+    }
+    this.options = Object.freeze(selected);
+    // Keep the existing scope contract: a filename selects credentials, not a physical cluster identity.
+    this.scope = JSON.stringify({ context: selected.context, namespace: selected.namespace ?? null });
+    this.runner = selected.runner ?? runKubectl;
+    this.timeoutMs = selected.timeoutMs ?? 120_000;
   }
 
   private target(resource: Resource): Target {
@@ -164,6 +176,7 @@ export class KubernetesAdapter implements ResourceAdapter {
   private command(args: string[], target?: Target, input?: string): Promise<CommandResult> {
     const seconds = `${Math.max(1, Math.ceil(this.timeoutMs / 1000))}s`;
     const base = ['--context', this.options.context, '--request-timeout', seconds];
+    if (this.options.kubeconfig !== undefined) base.push('--kubeconfig', this.options.kubeconfig);
     if (target?.namespace) base.push('--namespace', target.namespace);
     return this.runner(this.options.kubectl ?? 'kubectl', [...base, ...args], { timeoutMs: this.timeoutMs + 1000, ...(input === undefined ? {} : { input }) });
   }

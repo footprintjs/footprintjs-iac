@@ -143,6 +143,32 @@ test('CloudFormation missing references, unsupported intrinsics and retained dep
   await assert.rejects(synthesize(graph([cloudBucket(), { ...cloudBucket('retained'), dependsOn: ['bucket'], lifecycle: { retainOnRemoval: true } }]), { outputs: [cloudFormationOutput()] }), /dependency closure/);
 });
 
+test('retained resources reject implicit Ref and GetAtt ancestors even without declared dependency edges', async () => {
+  const values = [outputResourceRef('bucket'), outputResourceRef('bucket', 'Arn'),
+    { Ref: cloudFormationLogicalId('bucket') }, { 'Fn::GetAtt': [cloudFormationLogicalId('bucket'), 'Arn'] }];
+  for (const format of ['json', 'yaml'] as const) for (const value of values) {
+    const bucket = { ...cloudBucket(), lifecycle: { retainOnRemoval: false } };
+    const parameter: Resource = { id: 'retained-parameter', provider: 'aws-cloudformation', lifecycle: { retainOnRemoval: true },
+      spec: { Type: 'AWS::SSM::Parameter', Properties: { Type: 'String', Value: value } } };
+    const model = graph([bucket, parameter]);
+    assert.equal(model.resources.find(resource => resource.id === parameter.id)!.dependsOn, undefined);
+    await assert.rejects(synthesize(model, { outputs: [cloudFormationOutput({ format })] }), /retained dependency closure/);
+  }
+});
+
+test('retention refuses transitive native ancestors while resource-free pseudo-parameter references remain valid', async () => {
+  const middle: Resource = { id: 'middle', provider: 'aws-cloudformation', spec: {
+    Type: 'AWS::SSM::Parameter', Properties: { Type: 'String', Value: outputResourceRef('bucket') },
+  } };
+  const retained: Resource = { id: 'retained-parameter', provider: 'aws-cloudformation', lifecycle: { retainOnRemoval: true },
+    spec: { Type: 'AWS::SSM::Parameter', Properties: { Type: 'String', Value: outputResourceRef('middle') } } };
+  await assert.rejects(synthesize(graph([cloudBucket(), middle, retained]), { outputs: [cloudFormationOutput()] }), /retained dependency closure/);
+  const pseudoOnly = { ...retained, spec: { Type: 'AWS::SSM::Parameter', Properties: { Type: 'String', Value: { Ref: 'AWS::Region' } } } };
+  const result = await synthesize(graph([cloudBucket(), pseudoOnly]), { outputs: [cloudFormationOutput()] });
+  const template = JSON.parse(result.artifacts[0]!.files[0]!.content);
+  assert.equal(template.Resources[cloudFormationLogicalId(retained.id)].DeletionPolicy, 'Retain');
+});
+
 test('implicit native reference cycles cannot pass a source graph with no explicit dependency edges', async () => {
   const one = { ...cloudBucket('one'), spec: { Type: 'AWS::S3::Bucket', Properties: { BucketName: outputResourceRef('two') } } };
   const two = { ...cloudBucket('two'), spec: { Type: 'AWS::S3::Bucket', Properties: { BucketName: outputResourceRef('one') } } };

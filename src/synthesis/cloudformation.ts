@@ -11,7 +11,6 @@ function nativeResource(resource: Resource, logicalIds: ReadonlyMap<string, stri
   keys(resource.spec, ['Type', 'Properties', 'Metadata'], 'CloudFormation resource');
   if (typeof resource.spec.Type !== 'string' || !/^AWS::[A-Za-z0-9]+::[A-Za-z0-9]+$/.test(resource.spec.Type)) throw new Error('Invalid AWS CloudFormation resource type');
   if (resource.spec.Properties !== undefined && (!resource.spec.Properties || typeof resource.spec.Properties !== 'object' || Array.isArray(resource.spec.Properties))) throw new Error('CloudFormation Properties must be an object');
-  if (resource.lifecycle?.retainOnRemoval === true && resource.dependsOn?.length) throw new Error('CloudFormation export cannot preserve framework retained dependency closure');
   const spec = resolveCloudFormationRefs(resource.spec, logicalIds) as JsonObject;
   if (resource.dependsOn?.length) spec.DependsOn = resource.dependsOn.map(id => logicalIds.get(id)!);
   if (resource.lifecycle?.retainOnRemoval !== undefined) {

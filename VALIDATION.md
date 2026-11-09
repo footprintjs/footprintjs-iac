@@ -7,7 +7,7 @@ These are recorded results from the development laptop, not a claim that a fresh
 ## Framework
 
 - `npm run check`: passed.
-- `npm test`: **181 passed, 0 failed, 0 skipped**.
+- `npm test`: **192 passed, 0 failed, 0 skipped**.
 - `npm run build`: passed; the compiled library imports successfully.
 - `npm run demo`: passed creation, response-loss reconciliation, no-op planning, failed update, state replay, backward investigation, and repair.
 - `npm run graph:demo`: passed fluent serial/fork/join declaration, actual provider concurrency of two, one create send despite a lost response, unchanged no-op, matching recorded graph digest, failed update investigation, read-only replay and repair.
@@ -25,8 +25,9 @@ The suite includes actual `SIGKILL` worker tests, not just injected exceptions. 
 
 - Registry versions were checked directly before upgrading to FootPrint 11.1.0 and Foottrace 1.12.0. The full regression suite passes with those exact pins, including independent native JSONL replay and parallel write provenance.
 - Six progress tests cover pending/deploying/provider-confirmed-ready states, no-op resets, parallel failure and skipped dependents, confirmed deletion, malformed/mixed-run rejection, subscriber isolation and persisted progress replay.
-- Sixteen synthesis tests cover complete desired-state Kubernetes JSON/YAML, dependency-first ordering, deterministic files and hashes, source mappings, backend compatibility, native CloudFormation references, retention and reference cycles, plus checked failure/finalization behavior.
+- Eighteen synthesis tests cover complete desired-state Kubernetes JSON/YAML, dependency-first ordering, deterministic files and hashes, source mappings, backend compatibility, native CloudFormation references, retention and reference cycles, plus checked failure/finalization behavior.
 - `npm run synthesis:demo` passed. Kubernetes output uses the actual Neo desired graph. The AWS object-storage profile produces a narrow S3 CloudFormation JSON/YAML example with a synthetic account and no provider calls. Validation is structural; no live AWS deployment is claimed. Binding selection remains static metadata, while resource synthesis and finalization use native recorded stages.
+- Six recovered-create regressions verify a fresh post-readiness observation of existence, ownership, fingerprint and physical identity; drift or an unavailable read cannot become a ready event. Three kubeconfig selector tests cover explicit per-command isolation, concurrent adapters and unchanged process environment. CloudFormation retention also checks dependencies introduced by native references.
 - Consumer-supplied native recorders can attach through `InfraEngine({ recorders })`. Apply evidence now includes the native build-time structure for Flow Lens.
 
 The separate [footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens) consumer passed 14 headless TypeScript and real HTTP/SSE tests, typecheck, and standalone/optional-React builds. Headless public imports were also checked with renderer resolution explicitly blocked. Its root and `/core` imports load no React or DOM adapter; `/react` and the execution-evidence surface are separate optional/lazy entries.

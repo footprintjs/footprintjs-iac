@@ -237,7 +237,7 @@ The state and evidence files contain declared resource data. They are local file
 
 ## Kubernetes
 
-The adapter invokes the installed `kubectl` directly with an explicit context. It supports **Namespace, ConfigMap, Service and Deployment**, with verified ownership, atomic creation, conditional updates, delete preconditions and readiness checks.
+The adapter invokes the installed `kubectl` directly with an explicit context. In a shared process, pass `kubeconfig` explicitly; every command carries that selector without mutating the process environment. Credential file paths do not establish physical cluster identity; keep distinct state for distinct targets. It supports **Namespace, ConfigMap, Service and Deployment**, with verified ownership, atomic creation, conditional updates, delete preconditions and readiness checks.
 
 Kubernetes distinguishes initial POST ownership from server-side apply ownership, even when the manager name is identical. Updates first use ordinary server-side apply. A bootstrap conflict can be retried with force only when the existing main-resource managers are exclusively this framework's, foreign status owners do not overlap the desired fields, and the original UID/resourceVersion preconditions still hold. Foreign ownership conflicts remain failures.
 

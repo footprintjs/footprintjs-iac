@@ -76,6 +76,9 @@ async function executeOperation(operation: PlannedOperation, options: OperationE
           if (operation.action === 'delete') delete state.resources[operation.resource.id];
           else {
             await adapter.waitReady(operation.resource, context);
+            // The recovery observation preceded readiness; confirm the resource again before checkpointing.
+            reconciled = await adapter.observe(operation.resource, context);
+            if (!reconciled.exists || reconciled.owned !== true || reconciled.fingerprint !== fingerprint(operation.resource.spec)) throw new Error(`Provider did not converge: ${operation.resource.id}`);
             state.resources[operation.resource.id] = { resource: operation.resource, fingerprint: operation.desiredFingerprint, ...(reconciled?.physicalId ? { physicalId: reconciled.physicalId } : {}) };
           }
           await persistence.save(state);
