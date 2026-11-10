@@ -45,6 +45,18 @@
       "types": "./dist/src/connections/index.d.ts",
       "import": "./dist/src/connections/index.js"
     },
+    "./identity": {
+      "types": "./dist/src/identity/index.d.ts",
+      "import": "./dist/src/identity/index.js"
+    },
+    "./identity/ldap": {
+      "types": "./dist/src/identity-ldap/index.d.ts",
+      "import": "./dist/src/identity-ldap/index.js"
+    },
+    "./identity/policy": {
+      "types": "./dist/src/identity/policy.d.ts",
+      "import": "./dist/src/identity/policy.js"
+    },
     "./synthesis": {
       "types": "./dist/src/synthesis/index.d.ts",
       "import": "./dist/src/synthesis/index.js"
@@ -52,6 +64,10 @@
     "./integration/neo": {
       "types": "./dist/integration/neo/index.d.ts",
       "import": "./dist/integration/neo/index.js"
+    },
+    "./integration/identity": {
+      "types": "./dist/integration/identity/index.d.ts",
+      "import": "./dist/integration/identity/index.js"
     }
   },
   "files": [
@@ -61,8 +77,10 @@
     "VALIDATION.md",
     "examples",
     "integration/neo",
+    "integration/identity",
     "docs",
-    "dist/integration/neo"
+    "dist/integration/neo",
+    "dist/integration/identity"
   ],
   "scripts": {
     "check": "tsc --noEmit",
@@ -76,7 +94,12 @@
     "neo:review": "node integration/neo/run-review.ts",
     "neo:setup": "node integration/neo/setup.ts",
     "neo:prepare-fresh": "node integration/neo/fresh-prepare.ts",
-    "synthesis:demo": "node examples/synthesis.ts"
+    "synthesis:demo": "node examples/synthesis.ts",
+    "identity:prepare": "node integration/identity/prepare.ts",
+    "identity:deploy": "node integration/identity/deploy.ts",
+    "identity:verify": "node integration/identity/verify.ts",
+    "identity:fault": "node integration/identity/fault.ts",
+    "identity:cleanup": "node integration/identity/cleanup.ts"
   },
   "engines": {
     "node": ">=24"
@@ -84,6 +107,7 @@
   "dependencies": {
     "footprintjs": "11.1.0",
     "foottrace": "1.12.0",
+    "ldapts": "9.2.0",
     "yaml": "2.9.1"
   },
   "devDependencies": {

@@ -64,6 +64,10 @@ Persistent intent alone is not a universal failure guarantee. A real adapter mus
 
 Compute supports services, jobs and interval-scheduled tasks. Network supports segments and endpoints. Program, schedule, typed resource references and access modes remain explicit. Optional principals describe actor intent; declaring a principal or using `runAs` does not by itself create an identity provider or prove authorization.
 
+Generic identity sources and application permissions have a separate [identity API](IDENTITY.md). `defineIdentitySource` defaults to external ownership; declaration does not provision a directory. `defineAccessPolicy` declares exact rules, `evaluateAccess` evaluates them without I/O, and `authorizeAccess` records the same evaluation with native data/control provenance. A host must authenticate the subject and enforce the returned decision. These APIs do not make a capability's `runAs`, a role boundary or a security boundary enforce itself.
+
+Policy rules match `source AND (subject OR group) AND action AND resource`. Subject and group lists are alternatives, all values match exactly, unmatched requests are denied, and explicit deny overrides allow. LDAP authentication and LDAP-to-Keycloak federation are separate adapters under `footprint-iac/identity/ldap`; the base model carries no LDAP/Keycloak switch. The local Neo integration currently enforces app-wide `neo:chat` access, not tool-specific permissions or Kubernetes RBAC.
+
 ## Identity, composition and dependencies
 
 A leaf name supplies its stable capability ID; IDs are unique across the system. A `group.leaf` path provides discovery and reference resolution. `stableId()` allows an explicit stable identity. Moving a capability between composition groups preserves its ID when its name or explicit ID is retained; changing a reference path must still update its users.

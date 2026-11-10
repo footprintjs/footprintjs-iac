@@ -7,7 +7,7 @@ These are recorded results from the development laptop, not a claim that a fresh
 ## Framework
 
 - `npm run check`: passed.
-- `npm test`: **192 passed, 0 failed, 0 skipped**.
+- `node --test --test-concurrency=2 test/*.test.ts`: **245 passed, 0 failed, 0 skipped**.
 - `npm run build`: passed; the compiled library imports successfully.
 - `npm run demo`: passed creation, response-loss reconciliation, no-op planning, failed update, state replay, backward investigation, and repair.
 - `npm run graph:demo`: passed fluent serial/fork/join declaration, actual provider concurrency of two, one create send despite a lost response, unchanged no-op, matching recorded graph digest, failed update investigation, read-only replay and repair.
@@ -33,6 +33,22 @@ The suite includes actual `SIGKILL` worker tests, not just injected exceptions. 
 The separate [footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens) consumer passed 14 headless TypeScript and real HTTP/SSE tests, typecheck, and standalone/optional-React builds. Headless public imports were also checked with renderer resolution explicitly blocked. Its root and `/core` imports load no React or DOM adapter; `/react` and the execution-evidence surface are separate optional/lazy entries.
 
 Browser acceptance verified initial grey resources, live recorded deploying/ready transitions, injected failure with skipped dependents, resource inspection and native Flow Lens cursor navigation. Against the existing Neo Kubernetes fixture, Lens received nine native progress events for three provider-confirmed ready resources, all with action `noop`. Independent checks preserved Deployment UID and pod template and confirmed the original Neo server remained healthy. The viewer also exposes generated Kubernetes and labelled export-only CloudFormation artifacts. These browser checks used the local simulator and prepared Neo fixture, not live cloud services.
+
+## Identity and access integration
+
+The current local identity extension passed all 245 core tests, typecheck and build. The separate Lens consumer passed all 34 tests, typecheck and build. These include exact access-policy semantics, real LDAP adapter admission, sanitized native verification records, replay/backwalking, fixture ownership and sealed inputs, actual container drift, and expected denial versus unavailable identity checks.
+
+A separate local Neo namespace was deployed through the engine with a real OpenLDAP directory and LDAP-backed Keycloak broker. Seven measured checks passed: trusted LDAPS bind/group lookup, correct OIDC credential exchange, wrong-password rejection, anonymous refusal, allowed reader access to Neo's real session API, authenticated guest denial, and forged-token refusal. The directory was stopped and restored through the same engine; Lens recorded unavailable checks during the outage and passing checks after repair while preserving each phase's resource deployment record. Existing signed tokens are not claimed to be immediately revoked by a directory outage.
+
+Browser acceptance verified the OIDC/PKCE sign-in page and an authenticated guest's explicit access-denied screen. On the final reviewed app tree, a reader submitted a real Neo request 92.44 seconds after sign-in despite the fixture's original 60-second access-token lifetime, without another login or page reload. The renewed session rendered the three-row, five-column data artifact. The browser integration reads the current bearer and pinned conversation for each artifact request; logout and foreign-user/conversation regressions retain their refusals. Final Neo and Lens screenshots and measured browser acceptance are saved privately with the evidence.
+
+Actual Neo permission decisions were captured by its isolated native recorder worker. Snapshot and JSONL replay matched; backward slices reached policy, verified subject/groups, action, resource and the governing decision. A scoped scan of saved evidence found no real fixture credential canaries or JWT-like values. Replay/backwalking of cached proof was also verified with provider commands blocked. The Python tool server answered on same-Pod loopback and refused access through its Pod IP. These are separate native evidence layers; no automatic cross-request trace stitching is claimed.
+
+The image-update trial found and fixed plural Kubernetes conflict detection. Two changed container images now receive the existing bounded bootstrap-manager migration with identical UID/resourceVersion preconditions. Foreign managers remain refused; the running app survived the rejected attempt and the guarded retry converged.
+
+Neo's identity change passed 47 focused checks, typecheck and the browser build. Its full repository suite reported 2,549 passed, four failed, one skipped and one known TODO out of 2,555 tests before the three additional artifact-client regressions. The same four failures were reproduced against unchanged base commit `6f876df846ae683cc9e9a114a51b638e31615af2`: two PowerScale prompt-budget checks, missing filter-argument coverage for `pscale_cache_paths`, and its cluster-match time-bound fixture. No gate was weakened and those unrelated sources were not changed. The app is therefore a local reviewed index-tree snapshot, not a published Neo commit. The original checkout and original running Neo were preserved.
+
+Reproduce this explicitly local integration with [its setup and failure/recovery guide](integration/identity/README.md). It uses the scripted model and seeded SQLite data; it does not establish production SSO, persistent identity storage, fine-grained tool/admin permissions or Kubernetes RBAC.
 
 ## Portable handoff validation
 

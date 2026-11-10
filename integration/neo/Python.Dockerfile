@@ -1,4 +1,5 @@
-FROM footprint-iac/neo-node:local AS node-package
+ARG NEO_NODE_IMAGE=footprint-iac/neo-node:local
+FROM ${NEO_NODE_IMAGE} AS node-package
 FROM python:3.11-slim-bookworm
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1

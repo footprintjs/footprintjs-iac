@@ -142,6 +142,45 @@ test('Kubernetes migrates only its own create manager after an SSA conflict with
   assert.equal(metadata.resourceVersion, '5');
 });
 
+test('Kubernetes handles plural image conflicts on its own two-container Deployment with one conditional bootstrap migration', async () => {
+  const deployment: Resource = { id: 'neo-app', provider: 'kubernetes', spec: {
+    apiVersion: 'apps/v1', kind: 'Deployment', metadata: { name: 'neo', namespace: 'iac-test' },
+    spec: { replicas: 1, selector: { matchLabels: { app: 'neo' } }, template: {
+      metadata: { labels: { app: 'neo' } }, spec: { containers: [
+        { name: 'node', image: 'neo-node:v2' }, { name: 'python', image: 'neo-python:v2' },
+      ] },
+    } },
+  } };
+  const live = owned(deployment);
+  (((live.spec as JsonObject).template as JsonObject).spec as JsonObject).containers = [
+    { name: 'node', image: 'neo-node:v1' }, { name: 'python', image: 'neo-python:v1' },
+  ];
+  (live.metadata as JsonObject).managedFields = [{
+    manager: 'footprint-iac', operation: 'Update', apiVersion: 'apps/v1', fieldsType: 'FieldsV1',
+    fieldsV1: { 'f:spec': { 'f:template': { 'f:spec': { 'f:containers': {
+      'k:{"name":"node"}': { 'f:image': {} }, 'k:{"name":"python"}': { 'f:image': {} },
+    } } } } },
+  }, {
+    manager: 'kube-controller-manager', operation: 'Update', subresource: 'status', apiVersion: 'apps/v1', fieldsType: 'FieldsV1',
+    fieldsV1: { 'f:status': { 'f:availableReplicas': {} }, 'f:metadata': { 'f:annotations': { 'f:deployment.kubernetes.io/revision': {} } } },
+  }];
+  const conflict = new Error('Apply failed with 2 conflicts: conflicts with "footprint-iac" using apps/v1');
+  const transport = fake([JSON.stringify(live), conflict, '{}']);
+  await new KubernetesAdapter({ context: 'local', runner: transport.runner }).apply(deployment, context);
+  assert.equal(transport.calls.length, 3);
+  assert.ok(!transport.calls[1]!.args.includes('--force-conflicts=true'));
+  assert.ok(transport.calls[2]!.args.includes('--force-conflicts=true'));
+  assert.equal(transport.calls[1]!.options.input, transport.calls[2]!.options.input);
+  const sent = JSON.parse(transport.calls[2]!.options.input!) as JsonObject;
+  assert.equal((sent.metadata as JsonObject).uid, 'uid-1');
+  assert.equal((sent.metadata as JsonObject).resourceVersion, '5');
+  assert.deepEqual((((sent.spec as JsonObject).template as JsonObject).spec as JsonObject).containers,
+    [{ name: 'node', image: 'neo-node:v2' }, { name: 'python', image: 'neo-python:v2' }]);
+  const stillConflicting = fake([JSON.stringify(live), conflict, conflict]);
+  await assert.rejects(new KubernetesAdapter({ context: 'local', runner: stillConflicting.runner }).apply(deployment, context), /2 conflicts/);
+  assert.equal(stillConflicting.calls.length, 3, 'bootstrap migration is bounded to one conditional retry');
+});
+
 test('Kubernetes never forces another main-resource manager or an overlapping status-owned field', async () => {
   const bootstrap: JsonObject = {
     manager: 'footprint-iac', operation: 'Update', apiVersion: 'v1', fieldsType: 'FieldsV1', fieldsV1: { 'f:data': { 'f:greeting': {} } },
@@ -151,10 +190,10 @@ test('Kubernetes never forces another main-resource manager or an overlapping st
   }, {
     manager: 'controller', operation: 'Update', subresource: 'status', apiVersion: 'v1', fieldsType: 'FieldsV1', fieldsV1: { 'f:data': { 'f:greeting': {} } },
   }];
-  for (const other of foreignEntries) {
+  for (const other of foreignEntries) for (const message of ['Apply failed with 1 conflict', 'Apply failed with 2 conflicts']) {
     const live = owned();
     (live.metadata as JsonObject).managedFields = [bootstrap, other];
-    const transport = fake([JSON.stringify(live), new Error('Apply failed with 1 conflict')]);
+    const transport = fake([JSON.stringify(live), new Error(message)]);
     await assert.rejects(new KubernetesAdapter({ context: 'local', runner: transport.runner }).apply(config, context), /conflict/);
     assert.equal(transport.calls.length, 2, 'foreign ownership must not be forced');
   }

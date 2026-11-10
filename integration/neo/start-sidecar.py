@@ -21,7 +21,10 @@ subprocess.run([
     "--db-dir", str(directory), "--quiet",
 ], check=True)
 print("footprint-iac local trial: seeded SQLite only; no InfluxDB or production stores", flush=True)
+sidecar_host = os.environ.get("FOOTPRINT_IAC_SIDECAR_HOST", "0.0.0.0")
+if sidecar_host not in ("0.0.0.0", "127.0.0.1"):
+    raise SystemExit("The local sidecar host must be an explicit fixture bind address.")
 os.execv(sys.executable, [
     sys.executable, "-m", "uvicorn", "server:app", "--app-dir", "/app/py-tools",
-    "--host", "0.0.0.0", "--port", "8000", "--workers", "1",
+    "--host", sidecar_host, "--port", "8000", "--workers", "1",
 ])

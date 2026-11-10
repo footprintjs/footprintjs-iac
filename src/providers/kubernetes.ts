@@ -256,7 +256,7 @@ export class KubernetesAdapter implements ResourceAdapter {
       try {
         await this.command(args, target, body);
       } catch (error) {
-        if (!(error instanceof Error) || !/\bconflict\b/i.test(error.message) || !canMigrateBootstrap(live, desired)) throw error;
+        if (!(error instanceof Error) || !/\bconflicts?\b/i.test(error.message) || !canMigrateBootstrap(live, desired)) throw error;
         // Bounded one-time Update→Apply migration. Stale preconditions or any foreign
         // main-resource ownership make this fail rather than taking another writer's work.
         await this.command([...args, '--force-conflicts=true'], target, body);

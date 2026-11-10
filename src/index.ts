@@ -18,3 +18,4 @@ export * from './binding/index.ts';
 export * from './progress/index.ts';
 export * from './synthesis/index.ts';
 export * from './connections/index.ts';
+export * from './identity/index.ts';

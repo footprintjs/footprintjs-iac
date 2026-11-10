@@ -4,7 +4,7 @@ A TypeScript infrastructure framework built on **FootPrint 11.1.0** and **Foottr
 
 This is an executable prototype with a simulator, a Kubernetes adapter and recorded native artifact generation. The separate [IaC Lens](https://github.com/footprintjs/footprint-iac-lens) supplies a live system view and Flow Lens evidence inspection. This remains a single-machine foundation, not a production deployment service.
 
-Start with the [capability and wrapper guide](docs/CAPABILITIES.md). See [VALIDATION.md](VALIDATION.md) for current checks and the earlier completed real Neo Kubernetes trial. The [design notes](docs/DESIGN.md) define graph semantics and implementation boundaries.
+Start with the [capability and wrapper guide](docs/CAPABILITIES.md). The [identity and permission guide](docs/IDENTITY.md) covers generic access policies, recorded authorization and the LDAP adapters. See [VALIDATION.md](VALIDATION.md) for current checks and the earlier completed real Neo Kubernetes trial. The [design notes](docs/DESIGN.md) define graph semantics and implementation boundaries.
 
 For another laptop, start with the [clone, setup and test guide](docs/SHARING.md). The [agent handoff](docs/NEO-AGENT-HANDOFF.md) is ready to forward with the repository link. Both this repository and the separate Neo source repository require GitHub access.
 
@@ -149,6 +149,34 @@ The adapter supports a narrow, same-namespace Kubernetes Service → Deployment 
 
 Native `checking`, `connected` and `failed` events drive Lens communication edges. Each check saves its snapshot, structure, decisions, narrative and optional JSONL trace, including failed partial observations. Replay and backwalk inspect those captured inputs and outcomes without rerunning the network request. Checks are point-in-time observations from the recorded pod vantage point; they do not establish arbitrary-client reachability or continuous traffic monitoring. A failed connection does not rewrite a successful resource deployment as failed.
 
+## Identity and permissions
+
+Identity sources and access policies are generic crosscutting declarations. Provider adapters supply authentication and directory integration:
+
+```ts
+import { defineIdentitySource, defineAccessPolicy, authorizeAccess } from 'footprint-iac/identity';
+
+const source = defineIdentitySource({ id: 'company-directory', kind: 'directory' });
+// ownership defaults to 'external'; this reference does not create or own the directory.
+const policy = defineAccessPolicy({ id: 'application-access', rules: [{
+  id: 'readers', effect: 'allow', source: source.id, groups: ['application-readers'],
+  actions: ['application:read'], resources: ['application'],
+}] });
+
+// subject comes from a trusted authentication adapter, never an unverified request body.
+const authorization = await authorizeAccess({ policy, subject,
+  action: 'application:read', resource: 'application', traceDirectory: privateTraceDirectory });
+// The host must enforce authorization.decision.effect before serving protected data.
+```
+
+A rule matches `source AND (subject OR group) AND action AND resource`, using exact values. Unmatched requests are denied; a matching explicit deny overrides every allow. `evaluateAccess` is the pure evaluator, also available through the Node-free `footprint-iac/identity/policy` export. `authorizeAccess` evaluates the same policy in a native FootPrint workflow, recording safe identity, policy and request inputs plus the allowed/denied branch. Neither function authenticates a caller or enforces a decision on its own.
+
+`footprint-iac/identity/ldap` supplies a real `LdapSourceAdapter` for bounded LDAPS authentication/group lookup and a separate pure `LdapIdentityAdapter` for LDAP-to-Keycloak federation configuration. Both keep LDAP-specific choices outside the generic policy API. Secret resolvers/references supply credentials at runtime; do not put passwords, tokens or signing keys in graph JSON or diagnostic metadata.
+
+`checkIdentityAccess` runs declared login/access/directory checks through a trusted observation adapter. Native `checking`, `passed` and `failed` events drive Lens's identity panel. An expected denial passes only when the adapter observes denial; an unavailable identity backend is a separate failed observation. Identity checks preserve their own recording and do not change a successful infrastructure deployment into a failed resource run.
+
+The [local Neo identity integration](integration/identity/README.md) composes an isolated directory fixture, identity provider and real Neo app. Its permission boundary is currently app-wide `neo:chat` access to `neo`; it does not implement tool-specific IAM, Kubernetes RBAC or production SSO guarantees. Existing security/role boundaries and capability `runAs` declarations remain descriptive unless a supported adapter explicitly implements them. See [IDENTITY.md](docs/IDENTITY.md) for evidence interpretation and limits.
+
 ## Lower-level resource graph API
 
 ```ts
@@ -218,10 +246,13 @@ npm run iac -- inspect /absolute/path/to/run.json
 - `src/execution/*-stages.ts`: small native stage functions.
 - `src/execution/execute-operation.ts`, `persistence.ts`, `schedule.ts`: lifecycle, durable write ordering and bounded scheduling.
 - `src/progress`: native deployment-event validation, live projection and subscribers.
+- `src/identity`: generic sources, exact permission policies and native authorization/check workflows.
+- `src/identity-ldap`: strict LDAPS authentication and pure LDAP federation binding.
 - `src/synthesis/create-synthesis-chart.ts`: the dedicated native synthesis chart construction.
 - `src/synthesis`: checked output recorders, native encodings, references and source mappings.
 - `src/diagnostics/explain.ts`: structured read-only investigation.
 - `integration/neo/graph.ts`: consumer composition.
+- `integration/identity`: separate local directory/provider/Neo acceptance fixture.
 
 Parallel result and progress publication uses one isolated scope adapter in `src/execution/scope.ts`, through the exactly pinned FootPrint 11.1.0 native recording funnel. The underlying `ScopeFacade.setGlobal` API is marked internal by FootPrint; upgrades require its provenance/replay tests. Each resource writes disjoint result/progress keys, while joins own shared failure state.
 
@@ -233,6 +264,7 @@ Parallel result and progress publication uses one isolated scope adapter in `src
 | `buildPlan` | Refresh observed state; validate dependencies and ownership; choose create, update, verify, delete or no-op. |
 | `InfraEngine` | Convert the ordered plan into FootPrint stages and explicit proceed/skip decisions. |
 | `createDeploymentRecorder` | Project native resource progress into sequenced, run-scoped observations. |
+| Identity adapters and access policies | Establish verified subjects through supported adapters and derive explicit permission decisions; hosts enforce those decisions. |
 | `synthesize`, output adapters | Record complete desired-resource compilation and finalize native files with source mappings. |
 | `ReconcileStrategy` | Bound retries, stop on unknown observations, and require an adapter's safe-retry capability. |
 | `FileStateStore` | Persist intent before effects, checkpoint inventory, and exclude concurrent local applies. |
