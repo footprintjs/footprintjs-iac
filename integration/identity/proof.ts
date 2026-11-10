@@ -13,6 +13,7 @@ import { identityRoot, loadIdentityTarget, validateIdentityTarget, type Identity
 const UUID = '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
 const recordName = new RegExp('^' + UUID + '\\.json$');
 const traceName = new RegExp('^traces/' + UUID + '\\.jsonl$');
+const lensEvidenceRoots = ['lens', 'lens-live-app'] as const;
 const podScript = String.raw`
 const fs=require('node:fs'),p=require('node:path'),crypto=require('node:crypto');
 const root='/tmp/neo-access-evidence';
@@ -160,11 +161,21 @@ interface LensSnapshot {
   run: { id: string; status: string; report: { evidencePath: string; tracePath: string } };
   identity: { id: string; status: string; report: { evidencePath: string; tracePath: string } };
 }
+/** Admit exact owned output paths; do not normalize aliases or allow an arbitrary Lens directory. */
+function lensEvidenceRoot(target: IdentityTarget, identity: LensSnapshot['identity']): string {
+  assert.ok(recordName.test(identity.id + '.json'));
+  const root = lensEvidenceRoots.find(name => identity.report.evidencePath === join(target.directory, name, 'identity', identity.id + '.json'));
+  assert.ok(root, 'Identity evidence must use an owned Lens output directory');
+  assert.equal(identity.report.tracePath, join(target.directory, root, 'identity-traces', identity.id + '.jsonl'),
+    'Identity evidence and native trace must use the same Lens output directory');
+  return root;
+}
 async function verifyLensSequence(target: IdentityTarget) {
   const snapshots = await Promise.all(['baseline', 'outage', 'recovery'].map(async name => ({ name,
     state: JSON.parse((await privateFile(join(target.directory, 'lens-' + name + '.json'))).toString('utf8')) as LensSnapshot })));
   const baseline = snapshots[0]!.state;
   assert.equal(baseline.run.status, 'passed'); assert.ok(recordName.test(baseline.run.id + '.json'));
+  const lensRoot = lensEvidenceRoot(target, baseline.identity);
   const deploymentPath = baseline.run.report.evidencePath;
   assert.ok(deploymentPath.startsWith(target.stateDirectory + '/') && /^run-[a-f0-9]{64}\.json$/.test(deploymentPath.slice(target.stateDirectory.length + 1)));
   assert.equal(baseline.run.report.tracePath, join(target.directory, 'deployment-traces', baseline.run.id + '.jsonl'));
@@ -174,8 +185,7 @@ async function verifyLensSequence(target: IdentityTarget) {
   for (const { name, state } of snapshots) {
     assert.deepEqual(state.run, baseline.run, 'Identity failure and recovery must preserve the original deployment recording');
     assert.equal(state.identity.status, name === 'outage' ? 'failed' : 'passed'); assert.ok(recordName.test(state.identity.id + '.json'));
-    assert.equal(state.identity.report.evidencePath, join(target.directory, 'lens/identity', state.identity.id + '.json'));
-    assert.equal(state.identity.report.tracePath, join(target.directory, 'lens/identity-traces', state.identity.id + '.jsonl'));
+    assert.equal(lensEvidenceRoot(target, state.identity), lensRoot, 'All identity phases must use the same Lens output directory');
     const verified = await verifyNativeEvidence(state.identity.report.evidencePath, state.identity.report.tracePath, ['progress:guest-denied', 'progress:directory-available']);
     assert.equal(verified.runId, state.identity.id);
     assert.equal(verified.observations?.['guest-denied']?.verdict, name === 'outage' ? 'unavailable' : 'denied');
@@ -213,7 +223,8 @@ async function scanEvidenceCredentials(target: IdentityTarget) {
   const credentials = JSON.parse((await privateFile(join(target.directory, 'credentials.json'), 64 * 1024)).toString('utf8')) as Record<string, unknown>;
   const canaries = Object.values(credentials); assert.ok(canaries.length >= 3 && canaries.every(value => typeof value === 'string' && value.length >= 24));
   const needles = (canaries as string[]).map(value => Buffer.from(value));
-  const scope = ['state', 'deployment-traces', 'identity', 'identity-traces', 'lens/identity', 'lens/identity-traces', 'app-policy'];
+  const scope = ['state', 'deployment-traces', 'identity', 'identity-traces',
+    ...lensEvidenceRoots.flatMap(root => [root + '/identity', root + '/identity-traces']), 'app-policy'];
   let files = 0, bytes = 0, occurrences = 0, jwtLikeOccurrences = 0;
   async function walk(directory: string): Promise<void> {
     let entries;

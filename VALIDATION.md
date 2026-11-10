@@ -7,7 +7,7 @@ These are recorded results from the development laptop, not a claim that a fresh
 ## Framework
 
 - `npm run check`: passed.
-- `node --test --test-concurrency=2 test/*.test.ts`: **245 passed, 0 failed, 0 skipped**.
+- `node --test --test-concurrency=2 test/*.test.ts`: **254 passed, 0 failed, 0 skipped**.
 - `npm run build`: passed; the compiled library imports successfully.
 - `npm run demo`: passed creation, response-loss reconciliation, no-op planning, failed update, state replay, backward investigation, and repair.
 - `npm run graph:demo`: passed fluent serial/fork/join declaration, actual provider concurrency of two, one create send despite a lost response, unchanged no-op, matching recorded graph digest, failed update investigation, read-only replay and repair.
@@ -36,11 +36,11 @@ Browser acceptance verified initial grey resources, live recorded deploying/read
 
 ## Identity and access integration
 
-The current local identity extension passed all 245 core tests, typecheck and build. The separate Lens consumer passed all 34 tests, typecheck and build. These include exact access-policy semantics, real LDAP adapter admission, sanitized native verification records, replay/backwalking, fixture ownership and sealed inputs, actual container drift, and expected denial versus unavailable identity checks.
+The identity extension initially passed all 245 core tests, typecheck and build. The separate Lens consumer initially passed all 34 tests, typecheck and build. These include exact access-policy semantics, real LDAP adapter admission, sanitized native verification records, replay/backwalking, fixture ownership and sealed inputs, actual container drift, and expected denial versus unavailable identity checks. Current live-viewer follow-up results are recorded below.
 
 A separate local Neo namespace was deployed through the engine with a real OpenLDAP directory and LDAP-backed Keycloak broker. Seven measured checks passed: trusted LDAPS bind/group lookup, correct OIDC credential exchange, wrong-password rejection, anonymous refusal, allowed reader access to Neo's real session API, authenticated guest denial, and forged-token refusal. The directory was stopped and restored through the same engine; Lens recorded unavailable checks during the outage and passing checks after repair while preserving each phase's resource deployment record. Existing signed tokens are not claimed to be immediately revoked by a directory outage.
 
-Browser acceptance verified the OIDC/PKCE sign-in page and an authenticated guest's explicit access-denied screen. On the final reviewed app tree, a reader submitted a real Neo request 92.44 seconds after sign-in despite the fixture's original 60-second access-token lifetime, without another login or page reload. The renewed session rendered the three-row, five-column data artifact. The browser integration reads the current bearer and pinned conversation for each artifact request; logout and foreign-user/conversation regressions retain their refusals. Final Neo and Lens screenshots and measured browser acceptance are saved privately with the evidence.
+Earlier browser acceptance verified the OIDC/PKCE sign-in page and an authenticated guest's explicit access-denied screen. On that earlier reviewed app tree, a reader submitted a real Neo request 92.44 seconds after sign-in despite the fixture's original 60-second access-token lifetime, without another login or page reload. The renewed session rendered the three-row, five-column data artifact. The browser integration reads the current bearer and pinned conversation for each artifact request; logout and foreign-user/conversation regressions retain their refusals. Those screenshots and measured browser acceptance remain historical evidence for that deployment.
 
 Actual Neo permission decisions were captured by its isolated native recorder worker. Snapshot and JSONL replay matched; backward slices reached policy, verified subject/groups, action, resource and the governing decision. A scoped scan of saved evidence found no real fixture credential canaries or JWT-like values. Replay/backwalking of cached proof was also verified with provider commands blocked. The Python tool server answered on same-Pod loopback and refused access through its Pod IP. These are separate native evidence layers; no automatic cross-request trace stitching is claimed.
 
@@ -52,7 +52,65 @@ The [tested Neo integration branch](https://github.com/sanjay1909/neo-agentfootp
 
 Both final complete `npm run check` invocations exited zero: the available-store gate reported 5,259 passed test executions and three skips; the stopped-store gate with Docker disabled for that process reported 4,916 passed executions and 22 explicit skips. Both had zero failures and zero TODOs. Counts sum reported stage summaries, not distinct cases. Typecheck and the final browser build passed. An initial unchanged PowerScale parity subprocess exceeded its existing five-second deadline; the focused test and both final full gates passed without changing that limit or assertion. The initial log and measurements remain private local evidence; its cause was not established. GitHub main's newer changes were preserved; no CI or npm publication was used.
 
-The original checkout and original running Neo were preserved. The separate live identity fixture and browser evidence above remain the earlier reviewed deployment snapshot; this source/gate follow-up did not replace its images or claim fresh browser acceptance of the new commit.
+The original checkout and earlier Neo workloads were preserved. The source/gate follow-up itself did not replace the earlier identity fixture's images. A later, separate deployment of the new commit is described next.
+
+### Fresh live capability deployment on November 10
+
+The new owned target `83d8f481`, namespace `footprint-iac-identity-83d8f481`,
+uses the previously prepared local recording cluster. Its images were built from
+clean committed Neo source `7f5e4546bfcc0f4586e641ab19375c43238165a8`, tree
+`a4fc75ef571ee3e9d1f00bf0283120303122dafc`. Build metadata no longer infers test
+or publication status from image creation.
+
+Lens started before each apply. The identity bootstrap recorded two actual
+creates. Resource run `88b8cf21-22f8-412a-bad0-ef8fa8b32051` then recorded four
+Kubernetes creates and two identity no-ops. CUA browser capture showed pending,
+Started with a soft fade, and provider-confirmed Ready. Expanded generic
+Compute, Storage and Network units followed those native events. Nine logical
+units map to six managed resources; this is not nine separately provisioned
+services. The cluster is an existing prerequisite, and SQLite/session state is
+embedded and shares runtime readiness. No database server or persistent volume
+creation is claimed.
+
+The separate Lens suite passed **51 tests**, typecheck and both builds. Controls
+also failed as intended when native completion validation, live projection, or
+admission ordering was disabled, then passed after exact restoration.
+
+Browser acceptance on the new image verified real OIDC/PKCE reader sign-in,
+authenticated access to the scripted seeded zone audit, artifact rendering,
+logout, and explicit guest denial. A selected zone row received the server's
+Verified acknowledgement, while the disk-only follow-up correctly refused it;
+the feature edit omits that unsupported drill-down. The mock provider always
+runs the zone audit and does not establish contextual model reasoning.
+
+All seven identity checks passed, failed as expected when the owned LDAP
+directory was stopped through the engine, and passed again after restoration.
+All three phases retained the original resource recording; the failed native
+condition, recorded reads/writes and outcome were inspected in Lens. Generic
+communication-edge probes were not run by this identity fixture and remain
+explicitly Not checked. This is separate from the seven measured identity
+checks.
+
+Post-capture verification observed restarts under Docker VM-wide memory
+pressure. Kernel evidence identifies `CONSTRAINT_NONE, global_oom`, not a
+container-limit OOM: main Node RSS was about 269 MiB and its recording worker
+about 40 MiB. Five kind nodes share a roughly 7.75 GiB Docker VM. Kubernetes
+recovered the Pod and the owned forward was restarted; a subsequent `/health`
+returned 200. Increasing Neo's 1 GiB limit would not resolve VM-wide pressure.
+Older clusters were not silently stopped. The captured readiness is a
+point-in-time observation, not a sustained capacity claim; the private target
+retains diagnostics and the feature project documents this limitation.
+
+Cached acceptance proof passed against the new live viewer: 20 actual application
+permission recordings (16 allowed, four denied), matching snapshot/JSONL replay,
+authorization and identity-observation backwalks, unchanged resource recording
+across the three identity phases, and Python loopback isolation. A scoped scan
+of 83 evidence files found zero fixture credential canaries and zero complete
+JWT-like values. The proof admits only the exact owned legacy or live Lens
+directories, requires one matching directory across all phases, and scans both
+for credentials. Five new regressions bring the full core suite to **254 tests**;
+typecheck and build pass. Disabling the same-directory guard fails the intended
+mixed-directory regression, then exact restoration passes.
 
 Reproduce this explicitly local integration with [its setup and failure/recovery guide](integration/identity/README.md). It uses the scripted model and seeded SQLite data; it does not establish production SSO, persistent identity storage, fine-grained tool/admin permissions or Kubernetes RBAC.
 

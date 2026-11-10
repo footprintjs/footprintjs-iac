@@ -16,7 +16,14 @@ The default Neo fixture and its existing namespace are unchanged. This integrati
 
 ## Prepare and deploy
 
-Requirements: Node 24+, Git, Docker's Linux engine, kubectl, OpenSSL, and the sibling IaC Lens checkout. Build the core and Lens using their documented local checks. The Neo checkout must contain the identity gateway, browser login and isolated `neo-access-recorder` package; the historical Neo fixture commit alone does not include this feature.
+Requirements: Node 24+, Git, Docker's Linux engine, kind, kubectl, OpenSSL, and the sibling IaC Lens checkout. Build the core and Lens using their documented local checks. The Neo checkout must contain the identity gateway, browser login and isolated `neo-access-recorder` package; the historical Neo fixture commit alone does not include this feature.
+
+Keep enough Docker VM memory available for the selected cluster, directory and
+broker. Prefer a previously prepared owned recording cluster with a fresh
+namespace when other tests must remain running. Keeping many kind clusters live
+at once can exhaust the shared VM even while individual workloads are below
+their container limits; repeated Kubernetes restarts or dropped forwards require
+checking VM pressure before changing application limits.
 
 The tested consumer is the private Neo branch `feat/neo-identity-ldap-20261110`,
 commit `7f5e4546bfcc0f4586e641ab19375c43238165a8`. It includes the source-pinned
@@ -77,6 +84,63 @@ node examples/neo-identity.ts /printed/identity/target.json
 
 Open the printed dashboard URL. It displays the saved real deployment and runs fresh identity checks through **Check identity and access**. The evidence dropdown opens the native recorded verification chart. Deployment status is independent of identity checks. The private `credentials.json` contains the local Alice reader and Bob guest accounts; never forward this file or the fixture directory.
 
+## Watch a fresh deployment in Lens
+
+Choose this sequence **instead of the two CLI deploy commands above**. Start with
+a newly prepared identity target. Opening the viewer after a CLI apply can only
+show saved results or an unchanged no-op, not a fresh creation.
+
+From the Lens sibling, start the identity bootstrap viewer and open its printed
+loopback URL:
+
+```sh
+node examples/neo-identity-live.ts /printed/identity/target.json --identity-only --port=15238
+```
+
+Click **Deploy system**. Wait for the real directory and sign-in provider to
+become ready. The composition root records the provider's observed address. In
+the core checkout, build the reviewed Neo tree:
+
+```sh
+node integration/identity/build-neo.ts /path/to/Neo REVIEWED_TREE_HASH /printed/identity/target.json
+```
+
+Then, from Lens in another terminal:
+
+```sh
+node examples/neo-identity-live.ts /printed/identity/target.json --full --port=15239
+```
+
+Open this second URL and click **Deploy system**. This stage preserves the two
+identity services and creates the Namespace, policy ConfigMap, Deployment and
+Service. Expand **Compute**, **Storage** and **Network** to see their mapped
+resources move from pending through started to provider-confirmed ready. Progress
+counts ready declared units; it is not a time estimate. A prepared cluster is an
+existing prerequisite. Neo's seeded SQLite and session state are embedded in the
+runtime, so they share Deployment readiness; no separate database server or
+persistent volume is created.
+
+After readiness, start the owned loopback forward from the core checkout:
+
+```sh
+node integration/identity/forward.ts /printed/identity/target.json
+```
+
+Use **Open Neo**, sign in with the local Alice reader, and ask **run a zone
+redundancy audit for the RNV site**. The zero-key demo provider deliberately runs
+this scripted audit over seeded data. It does not demonstrate general model
+reasoning or disk drill-down. Bob signs in but receives **Access denied**.
+
+Run **Check identity and access** before, during and after the directory fault
+below. This fixture's seven measured identity checks are separate from generic
+communication-edge probes, which remain **Not checked**. The native identity
+recording is available through **Inspect identity recording**. To retain the
+three dashboard phases for the acceptance helper, save each `/api/state`
+response as `lens-baseline.json`, `lens-outage.json`, and `lens-recovery.json`
+inside the pinned target directory without reapplying resources between checks.
+Run `node integration/identity/proof.ts /printed/identity/target.json`, then
+repeat with `--offline` to verify cached replay and backward slices.
+
 ## Failure and recovery
 
 The fault command verifies that only the owned directory resource will change. Leave the dashboard process running, then:
@@ -96,7 +160,7 @@ npm run identity:verify -- /printed/identity/target.json
 
 Check again in Lens. Require directory availability, correct login, wrong-password rejection, anonymous refusal, actual Neo reader access, actual signed-in guest denial and forged-token refusal. A refusal passes only when it is the expected measured outcome. `identity:verify` persists the native record and traces and checks read-only replay/backwalking.
 
-Evidence lives under the pinned target: `state/`, `deployment-traces/`, `identity/`, `identity-traces/`, `faults/` and `lens/identity/`. Neo's actual permission decisions are independently recorded inside its private access-recorder worker. Paths, user/group IDs and policy facts are still sensitive local evidence; no guarantee is made for a trusted extension that deliberately inserts secrets into otherwise permitted diagnostic fields.
+Evidence lives under the pinned target: `state/`, `deployment-traces/`, `identity/`, `identity-traces/`, `faults/` and `lens/identity/` (or `lens-live-app/identity/` for the fresh-deployment viewer). Neo's actual permission decisions are independently recorded inside its private access-recorder worker. Paths, user/group IDs and policy facts are still sensitive local evidence; no guarantee is made for a trusted extension that deliberately inserts secrets into otherwise permitted diagnostic fields.
 
 When finished, the explicit ownership-checked cleanup removes this integration's workloads and local identity containers. It retains its namespace as protected inventory; it does not cascade-delete a namespace, the shared cluster or other Neo workloads:
 
