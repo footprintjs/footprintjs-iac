@@ -19,9 +19,10 @@ The default Neo fixture and its existing namespace are unchanged. This integrati
 Requirements: Node 24+, Git, Docker's Linux engine, kubectl, OpenSSL, and the sibling IaC Lens checkout. Build the core and Lens using their documented local checks. The Neo checkout must contain the identity gateway, browser login and isolated `neo-access-recorder` package; the historical Neo fixture commit alone does not include this feature.
 
 The tested consumer is the private Neo branch `feat/neo-identity-ldap-20261110`,
-commit `5e23d8271c7430ae4bbb9a2e306caebc6c2993a3`. It includes the source-pinned
-file-telemetry correction and passes the complete Neo gate with the owned
-store available and with Docker unavailable. Obtain that exact source before
+commit `7f5e4546bfcc0f4586e641ab19375c43238165a8`. It includes the source-pinned
+file-telemetry correction and native request-bound viewer grounding, and passes
+the complete Neo gate with zero TODOs with the owned store available and with
+Docker unavailable. Obtain that exact source before
 preparing the identity integration:
 
 ```sh
