@@ -4,6 +4,7 @@ import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { loadIdentityTarget } from './target.ts';
 import { command } from './command.ts';
+import { describeSourceReview } from './source-review.ts';
 
 const checkout = process.argv[2] && resolve(process.argv[2]);
 const sourceTree = process.argv[3];
@@ -12,6 +13,8 @@ const target = await loadIdentityTarget(process.argv[4]);
 const git = (...args: string[]) => execFileSync('git', ['-C', checkout, ...args], { encoding: 'utf8' }).trim();
 if (git('write-tree') !== sourceTree) throw new Error('The index no longer matches the reviewed source tree');
 if (git('diff', '--name-only')) throw new Error('Stage the reviewed changes; unstaged tracked files make the build ambiguous');
+const baseCommit = git('rev-parse', 'HEAD');
+const sourceReview = describeSourceReview({ baseCommit, committedTree: git('rev-parse', baseCommit + '^{tree}'), sourceTree });
 const files = execFileSync('git', ['-C', checkout, 'ls-tree', '-rz', '--name-only', sourceTree], { encoding: 'utf8' }).split('\0').filter(Boolean);
 if (files.some(path => {
   const leaf = path.split('/').at(-1)!;
@@ -27,7 +30,7 @@ await command('tar', ['-xf', archive, '-C', context]);
 for (const file of ['Node.Dockerfile', 'Python.Dockerfile', 'start-sidecar.py']) await copyFile(resolve(import.meta.dirname, '../neo', file), join(context, '.iac', file));
 const packaging: Record<string, string> = {};
 for (const file of ['Node.Dockerfile', 'Python.Dockerfile', 'start-sidecar.py']) packaging[file] = createHash('sha256').update(await readFile(join(context, '.iac', file))).digest('hex');
-await writeFile(join(target.directory, 'source-build-intent.json'), JSON.stringify({ baseCommit: git('rev-parse', 'HEAD'), sourceTree, packaging, context, at: new Date().toISOString() }, null, 2) + '\n', { mode: 0o600 });
+await writeFile(join(target.directory, 'source-build-intent.json'), JSON.stringify({ ...sourceReview, packaging, context, at: new Date().toISOString() }, null, 2) + '\n', { mode: 0o600 });
 await writeFile(join(context, '.dockerignore'), '.git\n**/node_modules\n**/.env\n**/.env.*\n**/.artifacts\n.claude\n.codex\n**/.venv\n', { mode: 0o600 });
 const temporaryTag = `footprint-iac/neo-node:identity-build-${target.id}`;
 await command('docker', ['build', '-f', join(context, '.iac/Node.Dockerfile'), '-t', temporaryTag, context], 600_000);
@@ -44,9 +47,8 @@ await command(kind, ['load', 'docker-image', image, pythonImage, '--name', targe
 target.images.nodeImage = image;
 target.images.pythonImage = pythonImage;
 target.sourceDirectory = checkout;
-target.sourceCommit = git('rev-parse', 'HEAD');
-const metadata = { baseCommit: target.sourceCommit, sourceTree, sourceStatus: 'reviewed-uncommitted-index', imageId, image, pythonImageId: pythonId, pythonImage, packaging, files: files.length,
-  limitation: 'The isolated identity change passed focused checks. Existing unrelated full-suite failures are retained; this is a review snapshot, not a published Neo commit.' };
+target.sourceCommit = baseCommit;
+const metadata = { ...sourceReview, imageId, image, pythonImageId: pythonId, pythonImage, packaging, files: files.length };
 for (const name of ['source-review.json', 'source-review-' + sourceTree + '.json']) await writeFile(join(target.directory, name), JSON.stringify(metadata, null, 2) + '\n', { mode: 0o600 });
 await writeFile(join(target.directory, 'target.json'), JSON.stringify(target, null, 2) + '\n', { mode: 0o600 });
 const latest = join(target.directory, '../latest.json');

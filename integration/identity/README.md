@@ -57,6 +57,12 @@ npm run identity:deploy -- /printed/identity/target.json
 
 The second apply preserves the directory and broker and creates Neo's namespace, policy ConfigMap, Deployment and Service. Compare the recorded commit and tree with the source you reviewed. An image build does not replace the full Neo acceptance gate; an uncommitted index snapshot remains explicitly a reviewed local build.
 
+Source metadata labels an admitted index `committed-clean` only when it matches
+the exact captured commit's tree. A different staged tree remains
+`reviewed-uncommitted-index`. The build records application-check and publication
+status as `not-assessed-by-build`; those results require their own evidence and
+are not inferred from a successful image build.
+
 Start a loopback port-forward in another terminal using the descriptor's explicit selectors:
 
 ```sh
