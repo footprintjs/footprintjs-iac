@@ -9,6 +9,8 @@ import { createOperationExecutor } from './execution/execute-operation.ts';
 import { ExecutionPersistence } from './execution/persistence.ts';
 import { INTERNAL_CONTROL_RECORDER_ID, runApplyChart } from './execution/run-apply-chart.ts';
 import { concurrencyLimit } from './execution/schedule.ts';
+import { INTERNAL_CHART_RECORDER_ID } from './execution/chart-observer.ts';
+import { readDeploymentChart, type DeploymentChartObserver } from './progress/chart.ts';
 import type { ExecutionFailure } from './execution/types.ts';
 import type { FailureStrategy, Plan, ResourceAdapter, Stack, StateStore } from './types.ts';
 
@@ -20,6 +22,7 @@ export interface ApplyResult {
   tracePath?: string;
   /** Best-effort runtime evidence, separate from the durable operation journal. */
   traceStatus?: { entries: number; failed: number; flushed: boolean; error?: string };
+  chartStatus?: { published: boolean; failed: number };
   failure: ExecutionFailure | null;
   results: Record<string, unknown>;
 }
@@ -31,8 +34,9 @@ export class InfraEngine {
   private readonly traceDirectory: string | undefined;
   private readonly maxConcurrency: number;
   private readonly recorders: readonly CombinedRecorder[];
+  private readonly chartObservers: readonly DeploymentChartObserver[];
 
-  constructor(options: { adapters: ResourceAdapter[]; store: StateStore; strategy?: FailureStrategy; traceDirectory?: string; maxConcurrency?: number; recorders?: CombinedRecorder[] }) {
+  constructor(options: { adapters: ResourceAdapter[]; store: StateStore; strategy?: FailureStrategy; traceDirectory?: string; maxConcurrency?: number; recorders?: CombinedRecorder[]; chartObservers?: DeploymentChartObserver[] }) {
     this.adapters = new Map(options.adapters.map(adapter => [adapter.name, adapter]));
     if (this.adapters.size !== options.adapters.length) throw new Error('Duplicate provider adapter names');
     this.store = options.store;
@@ -41,7 +45,10 @@ export class InfraEngine {
     this.maxConcurrency = concurrencyLimit(options.maxConcurrency);
     this.recorders = [...(options.recorders ?? [])];
     if (new Set(this.recorders.map(recorder => recorder.id)).size !== this.recorders.length) throw new Error('Duplicate deployment recorder IDs');
-    if (this.recorders.some(recorder => recorder.id === INTERNAL_CONTROL_RECORDER_ID)) throw new Error('The internal control recorder ID is reserved');
+    if (this.recorders.some(recorder => [INTERNAL_CONTROL_RECORDER_ID, INTERNAL_CHART_RECORDER_ID].includes(recorder.id))) throw new Error('The internal recorder ID is reserved');
+    this.chartObservers = [...(options.chartObservers ?? [])];
+    if (this.chartObservers.some(observer => !observer || typeof observer.id !== 'string' || !observer.id.trim() || typeof observer.onChart !== 'function')) throw new Error('A deployment chart observer needs an ID and onChart method');
+    if (new Set(this.chartObservers.map(observer => observer.id)).size !== this.chartObservers.length) throw new Error('Duplicate deployment chart observer IDs');
   }
 
   async plan(stack: Stack, options: { prune?: boolean } = {}): Promise<Plan> {
@@ -64,15 +71,18 @@ export class InfraEngine {
       const runId = randomUUID();
       const results: Record<string, unknown> = {};
       const execute = createOperationExecutor({ adapters: this.adapters, state, runId, strategy: this.strategy, persistence });
-      const chart = createApplyChart(plan, execute, results, this.maxConcurrency, runId);
-      const recorded = await runApplyChart(chart, runId, this.traceDirectory, this.recorders);
       const graph = (requested as Stack & { kind?: unknown }).kind === 'infra-graph' ? requested : undefined;
+      const built = createApplyChart(plan, execute, results, this.maxConcurrency, runId);
+      const deploymentChart = readDeploymentChart({ version: 1, runId, stack: requested.name,
+        ...(graph ? { graphDigest: (graph as Stack & { digest: string }).digest } : {}),
+        structure: built.chart.buildTimeStructure, resources: built.resources });
+      const recorded = await runApplyChart(built.chart, runId, this.traceDirectory, this.recorders, { chart: deploymentChart, observers: this.chartObservers });
       const evidencePath = await this.store.saveEvidence(runId, {
         version: 1, runId, stack: requested.name, ...recorded,
         ...(graph ? { graph } : {}),
       });
       const failure = recorded.snapshot.sharedState.failure as ExecutionFailure | null;
-      return { ok: !failure, runId, plan, evidencePath, failure, results,
+      return { ok: !failure, runId, plan, evidencePath, failure, results, chartStatus: recorded.chartStatus,
         ...(recorded.tracePath ? { tracePath: recorded.tracePath, traceStatus: recorded.traceStatus } : {}) };
     });
   }

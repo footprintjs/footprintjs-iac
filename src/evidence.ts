@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import type { InfraGraph } from './graph/types.ts';
 import { validateInfraGraph } from './graph/validation.ts';
 import type { RuntimeSnapshot } from 'footprintjs';
+import type { DeploymentChart } from './progress/chart.ts';
 import { formatSlice, keysReadFromExecutionTree, sliceForKey, stateAt, type ControlDependency } from 'foottrace';
 
 export interface RunEvidence {
@@ -14,6 +15,8 @@ export interface RunEvidence {
   narrative: unknown;
   /** Native build-time chart shape for execution viewers. */
   structure?: unknown;
+  deploymentChart?: DeploymentChart;
+  chartStatus?: { published: boolean; failed: number };
   graph?: InfraGraph;
   tracePath?: string;
   traceStatus?: { entries: number; failed: number; flushed: boolean; error?: string };

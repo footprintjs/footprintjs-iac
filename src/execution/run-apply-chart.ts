@@ -4,11 +4,12 @@ import { FlowChartExecutor, type CombinedRecorder, type FlowChart } from 'footpr
 import { controlDepRecorder } from 'footprintjs/trace';
 import { fileSink, type FileSink } from 'footprintjs/sinks';
 import { errorMessage } from '../util.ts';
+import { chartObserver, type ChartPublication } from './chart-observer.ts';
 
 export const INTERNAL_CONTROL_RECORDER_ID = 'iac-internal-control-dependencies';
 
 /** Runtime capture is best-effort and independent of the operation journal's durability. */
-export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runId: string, traceDirectory?: string, recorders: readonly CombinedRecorder[] = []) {
+export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runId: string, traceDirectory?: string, recorders: readonly CombinedRecorder[] = [], publication?: ChartPublication) {
   const tracePath = traceDirectory ? join(traceDirectory, `${runId}.jsonl`) : undefined;
   let traceSink: FileSink | undefined;
   let traceError: string | undefined;
@@ -24,6 +25,8 @@ export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runI
   const control = controlDepRecorder({ id: INTERNAL_CONTROL_RECORDER_ID });
   executor.enableNarrative();
   executor.attachCombinedRecorder(control);
+  const bridge = publication ? chartObserver(publication) : undefined;
+  if (bridge) executor.attachCombinedRecorder(bridge.recorder);
   for (const recorder of recorders) executor.attachCombinedRecorder(recorder);
   try { await executor.run(); }
   finally {
@@ -45,5 +48,7 @@ export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runI
     const dependency = control.asLookup()(commit.runtimeStageId);
     if (dependency) controlDeps[commit.runtimeStageId] = dependency;
   }
-  return { snapshot, structure: chart.buildTimeStructure, controlDeps, decisions: control.getDecisions(), narrative: executor.getNarrativeEntries(), ...(tracePath ? { tracePath, traceStatus } : {}) };
+  return { snapshot, structure: chart.buildTimeStructure, controlDeps, decisions: control.getDecisions(), narrative: executor.getNarrativeEntries(),
+    ...(publication && bridge ? { deploymentChart: publication.chart, chartStatus: { ...bridge.status } } : {}),
+    ...(tracePath ? { tracePath, traceStatus } : {}) };
 }

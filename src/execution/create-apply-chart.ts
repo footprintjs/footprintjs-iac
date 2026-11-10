@@ -5,12 +5,19 @@ import { loadDesiredStage, reconcileResourceStage, skipResourceStage } from './r
 import { scheduleOperations } from './schedule.ts';
 import { executionScopeFactory, type ExecutionScope } from './scope.ts';
 import type { OperationExecutor } from './types.ts';
+import type { DeploymentResourceStages } from '../progress/chart.ts';
 
 /** The only file that assembles the native apply chart; stage behavior lives beside it. */
 export function createApplyChart(plan: Plan, execute: OperationExecutor, results: Record<string, unknown>, maxConcurrency: number, runId: string) {
+  const resources: DeploymentResourceStages[] = [];
   let chart = flowChart<void, ExecutionScope>('Load desired resources', loadDesiredStage(plan, runId), 'load-desired')
     .setScopeFactory(executionScopeFactory);
   for (const batch of scheduleOperations(plan, maxConcurrency)) {
+    for (const operation of batch.operations) resources.push({ resourceId: operation.resource.id, action: operation.action, batchIndex: batch.index,
+      executeStageId: executionBranch(operation.resource.id),
+      gateStageId: batch.operations.length === 1 ? `gate-${operation.resource.id}` : `gate-batch-${batch.index}`,
+      skipStageId: batch.operations.length === 1 ? `skip-${operation.resource.id}` : skipBatchBranch(batch.index),
+      ...(batch.operations.length > 1 ? { joinStageId: `join-batch-${batch.index}` } : {}) });
     if (batch.operations.length === 1) {
       const operation = batch.operations[0]!;
       const id = operation.resource.id;
@@ -28,5 +35,5 @@ export function createApplyChart(plan: Plan, execute: OperationExecutor, results
     selector.addFunctionBranch(skipBatchBranch(batch.index), `Skip batch ${batch.index}`, skipBatchStage(batch, results, runId));
     chart = selector.end().addFunction(`Join batch ${batch.index}`, joinBatchStage(batch, results), `join-batch-${batch.index}`);
   }
-  return chart.build();
+  return { chart: chart.build(), resources };
 }

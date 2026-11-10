@@ -117,16 +117,30 @@ const progress = createDeploymentRecorder();
 const stop = progress.subscribe(event => {
   console.log(event.resourceId, event.status, event.action);
 });
+const stopChart = progress.subscribeChart(chart => {
+  // Translate the actual native chart; resource bindings identify its execute/skip/gate stages.
+  console.log(chart.structure, chart.resources);
+});
 const engine = new InfraEngine({
   adapters: [new SimulatorAdapter()],
   store: new FileStateStore('.artifacts/progress-example'),
   recorders: [progress],
+  chartObservers: [progress],
 });
 try { await engine.apply(binding.graph); }
-finally { stop(); }
+finally { stop(); stopChart(); }
 ```
 
 This example uses a simulation binding; provide the matching provider adapter for a real binding. Progress comes from recorded stages: `pending`, `deploying`, `ready`, `failed`, `skipped` and `deleted`. Ready follows provider confirmation, including on a no-op; a timer or successful API send does not make a node ready. New saved apply evidence includes its native build-time `structure` alongside the snapshot, decisions and narrative.
+
+The explicit IaC `chartObservers` bridge publishes the unchanged native
+`buildTimeStructure`, run/graph identity and resource-stage bindings after
+recorders reset and before traversal starts. It preserves the engine's actual
+serial gates or bounded parallel selector/join batches. The topology describes
+scheduled work; only runtime events establish that work started or became ready.
+`getSnapshot().chart` and saved `deploymentChart` retain the same native topology.
+This bridge uses FootPrint's existing `onRunStart` lifecycle; it does not add an
+`onBuild` hook to `CombinedRecorder` or introduce another workflow engine.
 
 The independently versioned [footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens) repository supplies the separate dashboard. Its root and `/core` APIs expose TypeScript models and transport without React imports; `/react` provides the optional React surface using Flow Lens. The resource system chart and native execution chart are separate views: infrastructure relationships describe the system, while the execution recording shows what this run did. See [PROGRESS.md](docs/PROGRESS.md) for recorder usage, status semantics and the UI boundary.
 

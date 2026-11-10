@@ -7,7 +7,7 @@ These are recorded results from the development laptop, not a claim that a fresh
 ## Framework
 
 - `npm run check`: passed.
-- `node --test --test-concurrency=2 test/*.test.ts`: **254 passed, 0 failed, 0 skipped**.
+- `node --test --test-concurrency=2 test/*.test.ts`: **262 passed, 0 failed, 0 skipped**.
 - `npm run build`: passed; the compiled library imports successfully.
 - `npm run demo`: passed creation, response-loss reconciliation, no-op planning, failed update, state replay, backward investigation, and repair.
 - `npm run graph:demo`: passed fluent serial/fork/join declaration, actual provider concurrency of two, one create send despite a lost response, unchanged no-op, matching recorded graph digest, failed update investigation, read-only replay and repair.
@@ -22,6 +22,25 @@ Local simulator report: `.artifacts/system-design/latest-report.json`. The new N
 The suite includes actual `SIGKILL` worker tests, not just injected exceptions. A create persisted by the simulator before the worker dies is discovered on restart without another apply. Native FootPrint records from killed runs remain explicitly incomplete. Other tests cover ownership, target binding, omission handling, drift, reverse-order pruning, locking, CLI behavior, and lost capture.
 
 ## Recorded synthesis and live progress
+
+The native chart bridge adds eight regressions, bringing the full core suite to
+**262 passing tests**, with typecheck and build passing. The unchanged FootPrint
+apply chart and explicit resource-stage bindings are published through the native
+`onRunStart` lifecycle after recorder reset and before the first resource event.
+Serial gates, real selector/join batches, run/graph identity, repeat no-ops,
+rejected topology and observer isolation are covered. Observer publication does
+not establish provider readiness or replace the durable operation journal.
+
+The separate Lens deployment-flow follow-up passed **66 tests**, typecheck and
+standalone/optional-React builds. Its headless projection validates the actual
+native gates/children/joins, uses event sequence for observed starts, and checks
+actual overlap without treating category order as execution order. A guard-removal
+control fails the intended contradictory-binding regression. Real HTTP tests
+observe native topology before the first resource event and confirm that topology
+alone cannot make a resource ready. Browser acceptance used the saved real Neo
+recording plus a separate local simulator for native live progress, fork/join,
+failure, skipped work and a successful existing-resource recheck. No Kubernetes
+workload was changed for this visual follow-up.
 
 - Registry versions were checked directly before upgrading to FootPrint 11.1.0 and Foottrace 1.12.0. The full regression suite passes with those exact pins, including independent native JSONL replay and parallel write provenance.
 - Six progress tests cover pending/deploying/provider-confirmed-ready states, no-op resets, parallel failure and skipped dependents, confirmed deletion, malformed/mixed-run rejection, subscriber isolation and persisted progress replay.

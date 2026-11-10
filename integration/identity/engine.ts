@@ -8,7 +8,8 @@ export function identityEngine(target: IdentityTarget) {
   const recorder = createDeploymentRecorder();
   const engine = new InfraEngine({
     adapters: [new IdentityFixtureAdapter(target.id), new KubernetesAdapter({ context: target.context, kubeconfig: target.kubeconfig, namespace: target.namespace })],
-    store: new FileStateStore(target.stateDirectory), traceDirectory: join(target.directory, 'deployment-traces'), recorders: [recorder],
+    store: new FileStateStore(target.stateDirectory), traceDirectory: join(target.directory, 'deployment-traces'),
+    recorders: [recorder], chartObservers: [recorder],
   });
   return { engine, recorder };
 }
