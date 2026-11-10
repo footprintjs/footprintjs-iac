@@ -18,6 +18,21 @@ The default Neo fixture and its existing namespace are unchanged. This integrati
 
 Requirements: Node 24+, Git, Docker's Linux engine, kubectl, OpenSSL, and the sibling IaC Lens checkout. Build the core and Lens using their documented local checks. The Neo checkout must contain the identity gateway, browser login and isolated `neo-access-recorder` package; the historical Neo fixture commit alone does not include this feature.
 
+The tested consumer is the private Neo branch `feat/neo-identity-ldap-20261110`,
+commit `5e23d8271c7430ae4bbb9a2e306caebc6c2993a3`. It includes the source-pinned
+file-telemetry correction and passes the complete Neo gate with the owned
+store available and with Docker unavailable. Obtain that exact source before
+preparing the identity integration:
+
+```sh
+git clone --branch feat/neo-identity-ldap-20261110 https://github.com/sanjay1909/neo-agentfootprint.git neo-agentfootprint-identity
+cd neo-agentfootprint-identity
+npm ci
+```
+
+Return to the core checkout for the commands below. The branch retains its
+recorded base; it does not overwrite or implicitly merge newer Neo main changes.
+
 Prepare a recording cluster first using `npm run neo:prepare-fresh -- /path/to/Neo` from the core repository. This creates a private cluster descriptor without applying the ordinary Neo graph. Alternatively, explicitly choose a previously prepared local recording-cluster descriptor; this integration uses a new namespace and state directory.
 
 ```sh
@@ -39,7 +54,7 @@ node integration/identity/build-neo.ts /path/to/Neo REVIEWED_TREE_HASH /printed/
 npm run identity:deploy -- /printed/identity/target.json
 ```
 
-The second apply preserves the directory and broker and creates Neo's namespace, policy ConfigMap, Deployment and Service. Review snapshots must not be presented as published Neo commits or as passing an unrelated failing full-app gate.
+The second apply preserves the directory and broker and creates Neo's namespace, policy ConfigMap, Deployment and Service. Compare the recorded commit and tree with the source you reviewed. An image build does not replace the full Neo acceptance gate; an uncommitted index snapshot remains explicitly a reviewed local build.
 
 Start a loopback port-forward in another terminal using the descriptor's explicit selectors:
 
