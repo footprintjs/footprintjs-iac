@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { loadIdentityTarget } from './target.ts';
 import { command } from './command.ts';
 import { describeSourceReview } from './source-review.ts';
+import { identityNeoImageTag, loadIdentityNeoImages } from './load-neo-images.ts';
 
 const checkout = process.argv[2] && resolve(process.argv[2]);
 const sourceTree = process.argv[3];
@@ -35,15 +36,14 @@ await writeFile(join(context, '.dockerignore'), '.git\n**/node_modules\n**/.env\
 const temporaryTag = `footprint-iac/neo-node:identity-build-${target.id}`;
 await command('docker', ['build', '-f', join(context, '.iac/Node.Dockerfile'), '-t', temporaryTag, context], 600_000);
 const imageId = await command('docker', ['image', 'inspect', '--format', '{{.Id}}', temporaryTag]);
-const image = 'footprint-iac/neo-node:identity-' + imageId.replace('sha256:', '');
+const image = identityNeoImageTag('node', imageId);
 await command('docker', ['tag', imageId, image]);
 const pythonTemporary = `footprint-iac/neo-python:identity-build-${target.id}`;
 await command('docker', ['build', '--build-arg', 'NEO_NODE_IMAGE=' + image, '-f', join(context, '.iac/Python.Dockerfile'), '-t', pythonTemporary, context], 600_000);
 const pythonId = await command('docker', ['image', 'inspect', '--format', '{{.Id}}', pythonTemporary]);
-const pythonImage = 'footprint-iac/neo-python:identity-' + pythonId.replace('sha256:', '');
+const pythonImage = identityNeoImageTag('python', pythonId);
 await command('docker', ['tag', pythonId, pythonImage]);
-const kind = resolve(import.meta.dirname, '../../.artifacts/bin/kind');
-await command(kind, ['load', 'docker-image', image, pythonImage, '--name', target.context.replace(/^kind-/, '')], 180_000);
+await loadIdentityNeoImages(target, imageId, pythonId);
 target.images.nodeImage = image;
 target.images.pythonImage = pythonImage;
 target.sourceDirectory = checkout;

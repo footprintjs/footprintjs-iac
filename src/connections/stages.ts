@@ -14,7 +14,7 @@ function publish(scope: ConnectionScope, request: ConnectionCheckRequest, runId:
 
 export function loadConnectionsStage(graphDigest: string, requests: readonly ConnectionCheckRequest[]): ConnectionStage {
   return scope => {
-    scope.setValue('graphDigest', graphDigest); scope.setValue('probeFailed', false);
+    scope.setValue('graphDigest', graphDigest); scope.setValue('activeConnectionId', null);
     scope.setValue('expectedConnectionIds', requests.map(request => request.connectionId));
     for (const request of requests) scope.setValue(`request:${request.connectionId}`, jsonCopy(request));
   };
@@ -47,7 +47,7 @@ export function probeStage(id: string, adapter: ConnectionAdapter): ConnectionSt
         ...(observation ? { observation: scope.getValue(`observation:${id}`) as typeof observation } : {}) };
     }
     scope.setValue(`result:${id}`, jsonCopy(result));
-    scope.setValue('probeFailed', result.status === 'failed');
+    scope.setValue('activeConnectionId', id);
   };
 }
 export function outcomeStage(id: string, runId: string, status: 'connected' | 'failed'): ConnectionStage {

@@ -12,7 +12,7 @@ export function createConnectionChart(graphDigest: string, requests: readonly Co
     chart = chart.addFunction(`Checking ${id}`, checkingStage(id, runId), `checking-${id}`)
       .addFunction(`Probe ${id}`, probeStage(id, adapter), `probe-${id}`)
       .addDeciderFunction(`Connection outcome: ${id}`, scope => decide(scope, [
-        { when: { probeFailed: { eq: false } }, then: connected, label: 'The adapter returned a verified observation' },
+        { when: current => current.probeFailed === false, then: connected, label: 'The adapter returned a verified observation' },
       ], failed), `outcome-${id}`)
       .addFunctionBranch(connected, `Connected ${id}`, outcomeStage(id, runId, 'connected'))
       .addFunctionBranch(failed, `Failed ${id}`, outcomeStage(id, runId, 'failed'))

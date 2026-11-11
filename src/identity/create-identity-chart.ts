@@ -12,7 +12,7 @@ export function createIdentityChart(stack: string, checks: readonly IdentityChec
     chart = chart.addFunction(`Checking ${check.label}`, identityCheckingStage(id, runId), `checking-${id}`)
       .addFunction(`Observe ${check.label}`, observeIdentityStage(id, adapter), `observe-${id}`)
       .addDeciderFunction(`Expected outcome: ${check.label}`, scope => decide(scope, [
-        { when: { checkPassed: { eq: true } }, then: passed, label: 'The observation matches the declared expected outcome' },
+        { when: current => current.checkPassed === true, then: passed, label: 'The observation matches the declared expected outcome' },
       ], failed), `outcome-${id}`)
       .addFunctionBranch(passed, `Passed ${check.label}`, identityOutcomeStage(id, runId, 'passed'))
       .addFunctionBranch(failed, `Failed ${check.label}`, identityOutcomeStage(id, runId, 'failed'))

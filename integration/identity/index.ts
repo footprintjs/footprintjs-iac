@@ -3,3 +3,6 @@ export { createIdentityGraph } from './graph.ts';
 export { identityEngine } from './engine.ts';
 export { neoIdentityChecks, neoIdentityCheckAdapter } from './checks.ts';
 export { neoAccessPolicy } from './policy.ts';
+export { neoIdentityConnectionAdapter, type NeoIdentityConnectionOptions } from './connections.ts';
+export { applyNeoIdentityFault, type NeoIdentityFaultOptions } from './apply-fault.ts';
+export type { NeoIdentityFaultAction } from './fault-graph.ts';

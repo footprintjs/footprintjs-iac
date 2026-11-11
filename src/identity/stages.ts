@@ -10,7 +10,7 @@ function publish(scope: IdentityScope, request: IdentityCheckRequest, runId: str
 }
 export function loadIdentityStage(stack: string, checks: readonly IdentityCheckRequest[]): IdentityStage {
   return scope => {
-    scope.setValue('stack', stack); scope.setValue('checkPassed', false);
+    scope.setValue('stack', stack); scope.setValue('activeCheckId', null);
     scope.setValue('expectedCheckIds', checks.map(check => check.id));
     for (const check of checks) scope.setValue(`request:${check.id}`, jsonCopy(check));
   };
@@ -37,7 +37,7 @@ export function observeIdentityStage(id: string, adapter: AccessCheckAdapter): I
     const result: IdentityCheckResult = { checkId: id, label: request.label, kind: request.kind, expected: request.expected,
       status: passed ? 'passed' : 'failed', observation: measured,
       ...(!passed ? { message: `Observed ${measured.verdict}; expected ${request.expected}.` } : {}) };
-    scope.setValue(`result:${id}`, jsonCopy(result)); scope.setValue('checkPassed', passed);
+    scope.setValue(`result:${id}`, jsonCopy(result)); scope.setValue('activeCheckId', id);
   };
 }
 export function identityOutcomeStage(id: string, runId: string, status: 'passed' | 'failed'): IdentityStage {

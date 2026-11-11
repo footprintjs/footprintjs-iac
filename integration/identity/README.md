@@ -113,8 +113,10 @@ node examples/neo-identity-live.ts /printed/identity/target.json --full --port=1
 
 Open this second URL and click **Deploy system**. This stage preserves the two
 identity services and creates the Namespace, policy ConfigMap, Deployment and
-Service. Expand **Compute**, **Storage** and **Network** to see their mapped
-resources move from pending through started to provider-confirmed ready. Progress
+Service. **Deployment flow** follows the native resource execution; **Running
+system** shows communication between those same resources. Select a resource for
+its declaration, mapped capabilities, native operation and measured checks.
+**Capabilities and placement** opens the logical inventory. Progress
 counts ready declared units; it is not a time estimate. A prepared cluster is an
 existing prerequisite. Neo's seeded SQLite and session state are embedded in the
 runtime, so they share Deployment readiness; no separate database server or
@@ -131,9 +133,17 @@ redundancy audit for the RNV site**. The zero-key demo provider deliberately run
 this scripted audit over seeded data. It does not demonstrate general model
 reasoning or disk drill-down. Bob signs in but receives **Access denied**.
 
-Run **Check identity and access** before, during and after the directory fault
-below. This fixture's seven measured identity checks are separate from generic
-communication-edge probes, which remain **Not checked**. The native identity
+The full viewer automatically checks all three communication paths after a
+successful deployment: a real credential grant through the broker's uncached
+LDAPS federation, a signing-key HTTP request from the Ready owned Neo Pod, and
+an in-cluster Service DNS/ClusterIP health request. **Check connections** repeats
+these point-in-time observations. Edges and status rows stream native
+**Checking → Connected / Failed** events. They do not claim continuous traffic
+monitoring. Resource colours retain the last recorded deployment outcome.
+
+Run **Check access** before, during and after the directory fault below. The
+seven measured identity checks have a separate native recording from the three
+communication checks. The native identity
 recording is available through **Inspect identity recording**. To retain the
 three dashboard phases for the acceptance helper, save each `/api/state`
 response as `lens-baseline.json`, `lens-outage.json`, and `lens-recovery.json`
@@ -143,13 +153,20 @@ repeat with `--offline` to verify cached replay and backward slices.
 
 ## Failure and recovery
 
-The fault command verifies that only the owned directory resource will change. Leave the dashboard process running, then:
+The fault command admits the complete durable inventory and changes only the
+selected existing owned resource. It preserves other supported recorded faults,
+refuses unrelated repairs or replacements, and records every outage/restoration
+through the normal engine. Leave the full dashboard running, then:
 
 ```sh
 npm run identity:fault -- directory-down /printed/identity/target.json
 ```
 
-Click **Check identity and access**. The real LDAPS connection and fresh login checks must become unavailable/failed. A provider's generic credential-error response during a confirmed directory outage is not counted as evidence of an incorrect password. Anonymous and forged-token refusals can still pass independently.
+Click **Check connections**, then **Check access**. The broker-to-directory
+connection and fresh login checks must fail. The signing-key and Neo Service
+paths can remain connected. A provider's generic credential-error response during
+a confirmed directory outage is not counted as evidence of an incorrect password.
+Anonymous and forged-token refusals can still pass independently.
 
 Always restore, including after a failed assertion:
 
@@ -160,7 +177,45 @@ npm run identity:verify -- /printed/identity/target.json
 
 Check again in Lens. Require directory availability, correct login, wrong-password rejection, anonymous refusal, actual Neo reader access, actual signed-in guest denial and forged-token refusal. A refusal passes only when it is the expected measured outcome. `identity:verify` persists the native record and traces and checks read-only replay/backwalking.
 
-Evidence lives under the pinned target: `state/`, `deployment-traces/`, `identity/`, `identity-traces/`, `faults/` and `lens/identity/` (or `lens-live-app/identity/` for the fresh-deployment viewer). Neo's actual permission decisions are independently recorded inside its private access-recorder worker. Paths, user/group IDs and policy facts are still sensitive local evidence; no guarantee is made for a trusted extension that deliberately inserts secrets into otherwise permitted diagnostic fields.
+Two further scoped fault pairs exercise the other communication paths:
+
+```sh
+npm run identity:fault -- provider-down /printed/identity/target.json
+# In Lens: Check connections, then Check access; preserve this failed run.
+npm run identity:fault -- provider-restore /printed/identity/target.json
+# Recheck and preserve recovery before proceeding.
+npm run identity:fault -- service-route-down /printed/identity/target.json
+# Check connections: only the Service path should fail.
+npm run identity:fault -- service-route-restore /printed/identity/target.json
+# Recheck: all three paths must connect again.
+```
+
+A stopped provider fails both identity-related paths while the Neo Service can
+still respond. The Service fault conditionally patches only its existing owned
+target port to the unused test port `5999`; restoration returns its original
+named port. Direct loopback app access and the seven identity checks can still
+pass during that Service failure because the deployment port-forward bypasses
+the Service route. Each check records its actual vantage point, owned identities,
+target, observation time and bounded diagnostic result. Credentials, tokens and
+signing-key bodies stay outside the recording.
+
+Hosts can compose the same public integration without the example server:
+
+```ts
+import { checkConnections } from 'footprint-iac/connections';
+import { loadIdentityTarget, createIdentityGraph, neoIdentityConnectionAdapter,
+  applyNeoIdentityFault } from 'footprint-iac/integration/identity';
+
+const target = await loadIdentityTarget('/printed/identity/target.json');
+const graph = createIdentityGraph(target, { includeNeo: true });
+const adapter = await neoIdentityConnectionAdapter(target);
+const result = await checkConnections({ graph, adapter });
+// A trusted local test host may invoke the same guarded fault workflow:
+// await applyNeoIdentityFault(target, 'provider-down');
+// Always restore it with 'provider-restore', including after failed assertions.
+```
+
+Evidence lives under the pinned target: `state/`, `deployment-traces/`, `identity/`, `identity-traces/`, `faults/` and `lens/identity/` (or `lens-live-app/identity/` for the fresh-deployment viewer). The full viewer also retains each `connections/<runId>.json` and `connection-traces/<runId>.jsonl`. Every check decision reads its own recorded result, including consecutive equal outcomes. Native replay and backwalking describe captured data/control provenance; they cannot establish an unobserved physical root cause. Neo's actual permission decisions are independently recorded inside its private access-recorder worker. Paths, user/group IDs and policy facts are still sensitive local evidence; no guarantee is made for a trusted extension that deliberately inserts secrets into otherwise permitted diagnostic fields.
 
 When finished, the explicit ownership-checked cleanup removes this integration's workloads and local identity containers. It retains its namespace as protected inventory; it does not cascade-delete a namespace, the shared cluster or other Neo workloads:
 
