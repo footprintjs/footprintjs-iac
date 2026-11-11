@@ -9,6 +9,8 @@ export interface OperationExecutionOptions {
   runId: string;
   strategy: FailureStrategy;
   persistence: ExecutionPersistence;
+  /** A reviewed check must not become an unreviewed repair after the plan was admitted. */
+  reviewedPlan?: boolean;
 }
 
 /** Resource lifecycle policy is independent of native chart construction and batch scheduling. */
@@ -43,6 +45,11 @@ async function executeOperation(operation: PlannedOperation, options: OperationE
           const recoveredCreate = old?.pending?.action === 'create'
             && old.pending.operationId === operation.operationId
             && old.pending.desiredFingerprint === operation.desiredFingerprint;
+          if (options.reviewedPlan && ['noop', 'verify'].includes(operation.action)
+            && (!observed.exists || observed.fingerprint !== operation.desiredFingerprint
+              || (old && old.fingerprint !== operation.desiredFingerprint && !recoveredCreate))) {
+            throw new ReviewedCheckDriftError();
+          }
           if (!observed.exists || observed.fingerprint !== operation.desiredFingerprint
             || (old && old.fingerprint !== operation.desiredFingerprint && !recoveredCreate)) {
             state.resources[operation.resource.id] = {
@@ -64,6 +71,7 @@ async function executeOperation(operation: PlannedOperation, options: OperationE
       } catch (error) {
         lastError = error;
         if (error instanceof PersistenceError) throw error;
+        if (error instanceof ReviewedCheckDriftError) break;
         let reconciled: Observation | undefined;
         try { reconciled = await adapter.observe(operation.resource, context); }
         catch { /* A failed read leaves outcome unknown, never authoritative absence. */ }
@@ -95,4 +103,8 @@ async function executeOperation(operation: PlannedOperation, options: OperationE
     await append('failed', errorMessage(error));
     throw error;
   }
+}
+
+class ReviewedCheckDriftError extends Error {
+  constructor() { super('A reviewed check now needs a mutation; inspect the changed resource and review again'); }
 }

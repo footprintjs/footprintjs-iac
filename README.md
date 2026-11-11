@@ -81,6 +81,64 @@ npm run iac -- replay /absolute/path/to/run.json --commit 0
 
 `npm run build` produces the importable library in `dist/src`. The package remains private and has not been published.
 
+## Versioned master workflow
+
+A master revision saves the desired graph, source/artifact identities and its
+parent revision as immutable JSON. Its revision ID, JSON schema version and
+native deployment run ID have separate meanings. The Node host supplies the
+engine, provider credentials, durable stores and target binding:
+
+```ts
+import { infra, resource, InfraEngine, FileStateStore, SimulatorAdapter } from 'footprint-iac';
+import { createDeploymentRecorder } from 'footprint-iac/progress';
+import { defineSystemRevision, FileMasterStore, MasterWorkflow } from 'footprint-iac/master/workflow';
+
+const graph = (image: string) => infra('master-example')
+  .start(resource('app', 'simulator', { image })).synth();
+const progress = createDeploymentRecorder();
+const engine = new InfraEngine({
+  adapters: [new SimulatorAdapter()],
+  store: new FileStateStore('.artifacts/master-example/resources'),
+  recorders: [progress], chartObservers: [progress],
+});
+const target = { id: 'local-example', scope: 'simulator:owned-local-system' };
+const master = new MasterWorkflow({ engine, target,
+  store: new FileMasterStore('.artifacts/master-example/history') });
+const v1 = defineSystemRevision({ revisionId: 'v1', parentDigest: null, target, graph: graph('example:v1') });
+
+// One-time baseline: an existing deployment supplies its complete native ApplyResult.
+const baseline = await engine.apply(v1.graph); // This example creates a simulated baseline.
+await master.adopt(v1, baseline); // Also requires a current all-noop, ready plan.
+const v2 = defineSystemRevision({ revisionId: 'v2', parentDigest: v1.digest, target, graph: graph('example:v2') });
+await master.stage(v2, { expectedAppliedDigest: v1.digest });
+const review = await master.preview();
+console.log(review.changes, review.plan.operations); // Inspect declaration differences and actual actions.
+const result = await master.apply(review.reviewId);
+console.log(result.runId, (await master.getState()).appliedDigest);
+```
+
+Stage and preview do not mutate provider resources. Preview seals the exact
+operation plan, including current observations; apply checks it again under the
+engine's state lock. A changed head, candidate or observed plan requires another
+review. A reviewed no-op cannot silently become a repair during execution.
+Only resources whose admitted plan needs a change are mutated; unchanged
+resources still receive recorded readiness checks. Promotion requires matching,
+complete native evidence. A failed attempt retains the previous applied revision
+and any successful partial provider effects remain visible for the next review.
+
+Reuse the same target binding, resource IDs, provider scope and resource state
+store for an upgrade. A revision cannot switch the workflow's target or stack;
+JSON does not select credentials or executable adapters. Adding or updating
+resources follows the provider's supported semantics. Removing a declared
+resource requires an explicit `master.preview({ prune: true })` review before
+apply; ownership and retention policies still protect resources. Removing
+individual Kubernetes fields remains unsupported, as described below.
+
+An interrupted process can leave an unresolved `running` master attempt. Further
+changes stay blocked until its outcome is resolved; this prototype does not yet
+provide a crash-recovery API. Do not treat an interrupted attempt as a successful
+upgrade or start another history to bypass it.
+
 ## Recorded native outputs
 
 With a Kubernetes-bound design, export the complete desired graph through native output recorders:

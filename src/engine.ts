@@ -13,6 +13,7 @@ import { INTERNAL_CHART_RECORDER_ID } from './execution/chart-observer.ts';
 import { readDeploymentChart, type DeploymentChartObserver } from './progress/chart.ts';
 import type { ExecutionFailure } from './execution/types.ts';
 import type { FailureStrategy, Plan, ResourceAdapter, Stack, StateStore } from './types.ts';
+import { fingerprintPlan } from './master/plan.ts';
 
 export interface ApplyResult {
   ok: boolean;
@@ -58,19 +59,27 @@ export class InfraEngine {
     return buildPlan(requested, await this.store.load(requested.name), this.adapters, options);
   }
 
-  async apply(stack: Stack, options: { prune?: boolean } = {}): Promise<ApplyResult> {
+  async apply(stack: Stack, options: { prune?: boolean; expectedPlanDigest?: string } = {}): Promise<ApplyResult> {
+    const expected = Object.getOwnPropertyDescriptor(options, 'expectedPlanDigest');
+    if ((expected && !('value' in expected)) || (!expected && 'expectedPlanDigest' in options)) throw new Error('Expected plan digest must be own data');
+    const expectedPlanDigest = expected?.value as string | undefined;
+    if (expectedPlanDigest !== undefined && (typeof expectedPlanDigest !== 'string' || !/^[a-f0-9]{64}$/.test(expectedPlanDigest))) throw new Error('Invalid expected plan digest');
     assertExecutableGraph(stack); // Reject accessors before cloning recognized graph artifacts.
     const requested = structuredClone(stack);
     assertExecutableGraph(requested); // Graph/boundary admission precedes every provider observation.
     return this.store.withLock(requested.name, async () => {
       const state = await this.store.load(requested.name);
       const plan = await buildPlan(requested, state, this.adapters, options);
+      if (expectedPlanDigest !== undefined && fingerprintPlan(plan) !== expectedPlanDigest) {
+        throw new Error('The reviewed plan is stale; inspect the current system and review again');
+      }
       const persistence = new ExecutionPersistence(this.store);
       state.providerScopes = Object.fromEntries([...this.adapters].filter(([, adapter]) => adapter.scope !== undefined).map(([name, adapter]) => [name, adapter.scope!]));
       await persistence.save(state);
       const runId = randomUUID();
       const results: Record<string, unknown> = {};
-      const execute = createOperationExecutor({ adapters: this.adapters, state, runId, strategy: this.strategy, persistence });
+      const execute = createOperationExecutor({ adapters: this.adapters, state, runId, strategy: this.strategy, persistence,
+        reviewedPlan: expectedPlanDigest !== undefined });
       const graph = (requested as Stack & { kind?: unknown }).kind === 'infra-graph' ? requested : undefined;
       const built = createApplyChart(plan, execute, results, this.maxConcurrency, runId);
       const deploymentChart = readDeploymentChart({ version: 1, runId, stack: requested.name,
