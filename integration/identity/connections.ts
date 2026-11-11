@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { isIP } from 'node:net';
 import { canonical } from '../../src/util.ts';
 import { jsonCopy } from '../../src/graph/data.ts';
 import { runKubectl, type CommandRunner } from '../../src/providers/kubernetes.ts';
@@ -13,6 +14,7 @@ import { assertFederationRoute, observeIdentityEndpoint, observeIdentityFixture 
 import { observeIdentityPod } from './connections/pod.ts';
 import { JWKS_CONNECTION_SCRIPT } from './connections/jwks-script.ts';
 import { publicServiceDetails, publicServiceFailure } from './connections/service-failure.ts';
+import { neoProviderJwksUrl } from './provider-endpoint.ts';
 
 /** Trusted composition/test seams. Dashboard requests cannot select targets, transports or commands. */
 export interface NeoIdentityConnectionOptions {
@@ -35,7 +37,6 @@ const validTime = (value: unknown): value is number => typeof value === 'number'
 export async function neoIdentityConnectionAdapter(input: IdentityTarget, options: NeoIdentityConnectionOptions = {}): Promise<ConnectionAdapter> {
   const root = options.fixtureRoot ?? identityRoot;
   const target = validateIdentityTarget(input, root);
-  if (!target.providerAddress) throw Error('Neo connection checks require the observed provider address');
   const graph = createIdentityGraph(target, { includeNeo: true });
   const resources = new Map(graph.resources.map(resource => [resource.id, resource]));
   const requests = new Map<string, string>(graph.relations.flatMap((relation, index) => relation.kind !== 'communicatesWith' ? [] : [[`communication:${index}`, canonical({
@@ -54,7 +55,7 @@ export async function neoIdentityConnectionAdapter(input: IdentityTarget, option
   const authenticate = identity.check.bind(identity);
   const service = new KubernetesConnectionAdapter({ context: target.context, kubeconfig: target.kubeconfig, namespace: target.namespace, runner });
   const provider = resources.get('identity-provider')!, runtime = resources.get('neo-app')!;
-  const jwksUrl = `http://${target.providerAddress}:8080/realms/neo/protocol/openid-connect/certs`;
+  const jwksUrl = neoProviderJwksUrl(target);
 
   return { async check(original: ConnectionCheckRequest): Promise<ConnectionObservation> {
     const started = Date.now();
@@ -90,11 +91,15 @@ export async function neoIdentityConnectionAdapter(input: IdentityTarget, option
         failureCode = 'jwks-command-failed';
         const result = JSON.parse((await runner('kubectl', ['--kubeconfig', target.kubeconfig, '--context', target.context,
           '--namespace', target.namespace, '--request-timeout', '5s', 'exec', before.source.pod.name, '--container', 'node', '--',
-          'node', '-e', JWKS_CONNECTION_SCRIPT, JSON.stringify({ url: jwksUrl, timeoutMs: 3000 })], { timeoutMs: 6000 })).stdout);
+          'node', '-e', JWKS_CONNECTION_SCRIPT, JSON.stringify({ url: jwksUrl, expectedAddress: before.provider.address, timeoutMs: 3000 })], { timeoutMs: 6000 })).stdout);
         details.probe = { httpStatus: typeof result.httpStatus === 'number' ? result.httpStatus : null,
           code: ['verified', 'jwks-http-failed', 'jwks-response-invalid', 'jwks-response-too-large', 'jwks-signing-key-missing',
-            'jwks-transport-failed', 'jwks-probe-failed', 'jwks-deadline-exceeded'].includes(result.code) ? result.code : 'unverified',
+            'jwks-transport-failed', 'jwks-probe-failed', 'jwks-deadline-exceeded', 'jwks-target-invalid',
+            'jwks-dns-failed', 'jwks-dns-unverified'].includes(result.code) ? result.code : 'unverified',
           signingKeys: Number.isInteger(result.signingKeys) ? result.signingKeys : 0,
+          dnsAddresses: Array.isArray(result.dnsAddresses) && result.dnsAddresses.length <= 8
+            && result.dnsAddresses.every((address: unknown) => typeof address === 'string' && isIP(address) === 4) ? result.dnsAddresses : [],
+          remoteAddress: typeof result.remoteAddress === 'string' && isIP(result.remoteAddress) === 4 ? result.remoteAddress : null,
           observedAt: validTime(result.observedAt) ? result.observedAt : null, latencyMs: validTime(result.latencyMs) ? result.latencyMs : null };
         failureCode = 'jwks-probe-failed';
         const after = { provider: await observeIdentityEndpoint(target, provider, graph.name, fixture, runner),
@@ -102,7 +107,9 @@ export async function neoIdentityConnectionAdapter(input: IdentityTarget, option
         if (canonical(before) !== canonical(after)) { failureCode = 'identity-changed-during-check'; throw Error(); }
         if (!before.provider.running || result.ok !== true || result.code !== 'verified' || result.httpStatus !== 200
           || !Number.isInteger(result.signingKeys) || result.signingKeys < 1 || result.signingKeys > 32
-          || !validTime(result.observedAt) || !validTime(result.latencyMs)) throw Error();
+          || !Array.isArray(result.dnsAddresses) || !result.dnsAddresses.length || result.dnsAddresses.length > 8
+          || result.dnsAddresses.some((address: unknown) => address !== before.provider.address)
+          || result.remoteAddress !== before.provider.address || !validTime(result.observedAt) || !validTime(result.latencyMs)) throw Error();
       } else {
         method = 'kubernetes-service-http'; endpoint = `http://neo.${target.namespace}.svc.cluster.local:5230/health`;
         details = { context: target.context, namespace: target.namespace, scope: scope.service };

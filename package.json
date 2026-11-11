@@ -41,6 +41,10 @@
       "types": "./dist/src/progress/index.d.ts",
       "import": "./dist/src/progress/index.js"
     },
+    "./progress/preview": {
+      "types": "./dist/src/progress/preview-chart.d.ts",
+      "import": "./dist/src/progress/preview-chart.js"
+    },
     "./connections": {
       "types": "./dist/src/connections/index.d.ts",
       "import": "./dist/src/connections/index.js"

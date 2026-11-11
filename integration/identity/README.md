@@ -41,7 +41,7 @@ npm ci
 Return to the core checkout for the commands below. The branch retains its
 recorded base; it does not overwrite or implicitly merge newer Neo main changes.
 
-Prepare a recording cluster first using `npm run neo:prepare-fresh -- /path/to/Neo` from the core repository. This creates a private cluster descriptor without applying the ordinary Neo graph. Alternatively, explicitly choose a previously prepared local recording-cluster descriptor; this integration uses a new namespace and state directory.
+Prepare a recording cluster first using `npm run neo:prepare-fresh -- /path/to/neo-agentfootprint-base-fixture` from the core repository. The separate base fixture and exact checkout steps are documented in the [laptop handoff](../../docs/NEO-AGENT-HANDOFF.md). This creates a private cluster descriptor without applying the ordinary Neo graph. Alternatively, explicitly choose a previously prepared local recording-cluster descriptor; this integration uses a new namespace and state directory.
 
 ```sh
 npm run identity:prepare -- .artifacts/neo/fresh/latest.json
@@ -49,20 +49,20 @@ npm run identity:prepare -- .artifacts/neo/fresh/latest.json
 
 Pin the printed identity `target.json` path for the whole test. Do not switch to a newly changed `latest.json` halfway through. Preparation builds the local LDAP image, pins image identities and generates sealed private fixture files. It does not deploy Neo.
 
-```sh
-npm run identity:deploy -- /printed/identity/target.json --identity-only
-```
-
-The first stage creates the real directory and broker and records their deployment. The broker's observed private address is then bound into the Neo configuration.
-
-For a local reviewed source snapshot, stage only the reviewed Neo changes and obtain `git write-tree` in that checkout. No commit or publishing is implied. The explicit build helper archives that exact tree, refuses credential files and unstaged tracked changes, builds both images, and records the base commit and tree hash:
+Build the protected consumer images **before opening Lens or applying any
+resources**. For a local reviewed source snapshot, stage only the reviewed Neo
+changes and obtain `git write-tree` in that checkout. No commit or publishing is
+implied. The explicit build helper archives that exact tree, refuses credential
+files and unstaged tracked changes, builds both images, and records the base
+commit and tree hash:
 
 ```sh
 node integration/identity/build-neo.ts /path/to/Neo REVIEWED_TREE_HASH /printed/identity/target.json
-npm run identity:deploy -- /printed/identity/target.json
 ```
 
-The second apply preserves the directory and broker and creates Neo's namespace, policy ConfigMap, Deployment and Service. Compare the recorded commit and tree with the source you reviewed. An image build does not replace the full Neo acceptance gate; an uncommitted index snapshot remains explicitly a reviewed local build.
+Compare the recorded commit and tree with the source you reviewed. An image build
+does not replace the full Neo acceptance gate; an uncommitted index snapshot
+remains explicitly a reviewed local build.
 
 Source metadata labels an admitted index `committed-clean` only when it matches
 the exact captured commit's tree. A different staged tree remains
@@ -70,51 +70,36 @@ the exact captured commit's tree. A different staged tree remains
 status as `not-assessed-by-build`; those results require their own evidence and
 are not inferred from a successful image build.
 
-Start a loopback port-forward in another terminal using the descriptor's explicit selectors:
+## Watch one fresh build in Lens
+
+Start with a newly prepared identity target whose protected images were built
+above. Do not apply it through the CLI first: that would leave saved results or
+an unchanged no-op for the recording.
+
+From the Lens sibling, start the viewer once and open its printed loopback URL:
 
 ```sh
-kubectl --kubeconfig KUBECONFIG_FROM_DESCRIPTOR --context CONTEXT_FROM_DESCRIPTOR --namespace NAMESPACE_FROM_DESCRIPTOR port-forward deployment/neo NEO_PORT_FROM_DESCRIPTOR:5230 --address 127.0.0.1
+node examples/neo-identity-live.ts /printed/identity/target.json --port=0
 ```
 
-From the Lens sibling:
+**Simple** is the default. All six objects appear grey from the start:
+Directory, Sign-in, Space, Access, Program and Network. Click **Build system**
+once. The same chart follows grey → building → ready for all six real creates
+in one native FootPrint deployment run. There is no identity bootstrap apply or
+second page. `--full` remains an optional alias; this viewer rejects
+`--identity-only`.
 
-```sh
-node examples/neo-identity.ts /printed/identity/target.json
-```
+Fresh targets declare the provider's stable Docker-network hostname, so Neo can
+be declared before the provider exists. The owned provider must become ready
+before Neo runs. Connection probes verify DNS against that provider's observed
+owned address and pin the HTTP connection to it. Legacy targets with a saved
+provider IP remain supported. The build does not mutate the target or resource
+graph to substitute an address.
 
-Open the printed dashboard URL. It displays the saved real deployment and runs fresh identity checks through **Check identity and access**. The evidence dropdown opens the native recorded verification chart. Deployment status is independent of identity checks. The private `credentials.json` contains the local Alice reader and Bob guest accounts; never forward this file or the fixture directory.
-
-## Watch a fresh deployment in Lens
-
-Choose this sequence **instead of the two CLI deploy commands above**. Start with
-a newly prepared identity target. Opening the viewer after a CLI apply can only
-show saved results or an unchanged no-op, not a fresh creation.
-
-From the Lens sibling, start the identity bootstrap viewer and open its printed
-loopback URL:
-
-```sh
-node examples/neo-identity-live.ts /printed/identity/target.json --identity-only --port=15238
-```
-
-Click **Deploy system**. Wait for the real directory and sign-in provider to
-become ready. The composition root records the provider's observed address. In
-the core checkout, build the reviewed Neo tree:
-
-```sh
-node integration/identity/build-neo.ts /path/to/Neo REVIEWED_TREE_HASH /printed/identity/target.json
-```
-
-Then, from Lens in another terminal:
-
-```sh
-node examples/neo-identity-live.ts /printed/identity/target.json --full --port=15239
-```
-
-Open this second URL and click **Deploy system**. This stage preserves the two
-identity services and creates the Namespace, policy ConfigMap, Deployment and
-Service. **Deployment flow** follows the native resource execution; **Running
-system** shows communication between those same resources. Select a resource for
+The initial native schedule preview supplies positions only; it creates no
+recorded starts or readiness. The actual native chart supersedes it at execution.
+In **Details**, **Deployment flow** follows native resource execution and
+**Running system** shows communication between those same resources. Select a resource for
 its declaration, mapped capabilities, native operation and measured checks.
 **Capabilities and placement** opens the logical inventory. Progress
 counts ready declared units; it is not a time estimate. A prepared cluster is an
@@ -132,6 +117,8 @@ Use **Open Neo**, sign in with the local Alice reader, and ask **run a zone
 redundancy audit for the RNV site**. The zero-key demo provider deliberately runs
 this scripted audit over seeded data. It does not demonstrate general model
 reasoning or disk drill-down. Bob signs in but receives **Access denied**.
+Their generated passwords remain in private `credentials.json`; never forward
+that file or the fixture directory.
 
 The full viewer automatically checks all three communication paths after a
 successful deployment: a real credential grant through the broker's uncached
@@ -141,7 +128,9 @@ these point-in-time observations. Edges and status rows stream native
 **Checking → Connected / Failed** events. They do not claim continuous traffic
 monitoring. Resource colours retain the last recorded deployment outcome.
 
-Run **Check access** before, during and after the directory fault below. The
+In Simple, use **Check** beside **Connections** or **Sign-in & access**; Details
+labels these actions **Check connections** and **Check access**. Run access
+checks before, during and after the directory fault below. The
 seven measured identity checks have a separate native recording from the three
 communication checks. The native identity
 recording is available through **Inspect identity recording**. To retain the

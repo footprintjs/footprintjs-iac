@@ -91,32 +91,33 @@ into each new terminal as needed. Do not later reread latest.json to select a
 possibly different target. Do not run CLI deployment before the Lens steps:
 this test must show genuine first creation.
 
-## 3. Watch the real deployment stages
+## 3. Watch one continuous build
 
 From the sibling Lens checkout in terminal A, with the same IAC_TARGET:
 
 ```sh
-node examples/neo-identity-live.ts "$IAC_TARGET" --identity-only --port=0
+node examples/neo-identity-live.ts "$IAC_TARGET" --port=0
 ```
 
-Open the printed URL and click **Deploy system**. Observe grey → deploying →
-ready for the new directory and provider. Require two real creates and the
-provider address saved from its owned physical identity. After completion you
-may stop this bootstrap viewer with Ctrl-C; that does not stop its containers.
+Open the printed URL in **Simple** mode. All six objects must be grey before
+clicking **Build system** once: Directory, Sign-in, Space, Access, Program and
+Network. Keep the same page and chart throughout grey → building → ready. A
+fresh target requires six real creates in one native FootPrint deployment run;
+there is no separate identity page, bootstrap apply or address-copy step.
+The optional `--full` flag is an alias for this same build; the viewer rejects
+`--identity-only`.
 
-From Lens in terminal B:
+Fresh Neo configuration uses the sign-in container's stable name on the
+prepared local network. The measured connection check verifies its DNS answer
+against the owned provider before sending a pinned HTTP request. Existing
+targets with a recorded provider IP remain supported. No target or graph is
+rewritten during the build.
 
-```sh
-node examples/neo-identity-live.ts "$IAC_TARGET" --full --port=0
-```
-
-Open that newly printed URL and click **Deploy system**. Require first creation
-of Namespace, policy ConfigMap, Neo Deployment and Service. The existing two
-identity resources are now verified owned no-op checks, not new creates. Node
-and Python must become Ready without unexpected restarts. Keep this full viewer
-running through all fault phases. Do not reapply or replace it between phases.
-
-**Deployment flow** follows native chart/event order. **Running system** follows
+Node and Python must become Ready without unexpected restarts. Keep this viewer
+running through all fault phases; do not reapply or replace it between phases.
+The initial schedule preview establishes positions only; native recorded starts
+and provider confirmations drive progress. In **Details**, **Deployment flow**
+follows native chart/event order and **Running system** follows
 communication topology. Select a resource and switch views to verify shared
 selection, recorded operation and scoped checks. **Capabilities and placement**
 opens the logical inventory. SQLite and session state are embedded in the
@@ -129,16 +130,17 @@ After readiness, from the core checkout:
 node integration/identity/forward.ts "$IAC_TARGET"
 ```
 
-Use the actual **Open Neo** URL. In Lens click **Check access** and require 7/7
+Use the actual **Open Neo** URL. In Simple, click **Check** beside **Sign-in &
+access** (or **Check access** in Details) and require 7/7
 passed. Connection checks run automatically after deployment; **Check connections**
-repeats them. Edges and rows must stream native **Checking → Connected / Failed**
+in Details, or **Check** beside **Connections** in Simple, repeats them. Edges and rows must stream native **Checking → Connected / Failed**
 events. These are point-in-time checks; resource colours retain the last recorded
 deployment verdict.
 
 Measured paths:
 
 1. Provider → directory: a credential grant through sealed, uncached LDAPS federation.
-2. Ready Neo Pod → provider: a real signing-key HTTP request to the owned provider address.
+2. Ready Neo Pod → provider: a real signing-key HTTP request through the declared endpoint, pinned to its verified owned address.
 3. Service → Neo: real in-cluster DNS/ClusterIP HTTP health through owned backends.
 
 The seven access checks cover directory availability, reader login, wrong

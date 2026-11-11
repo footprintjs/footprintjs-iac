@@ -20,7 +20,7 @@ import { fingerprint } from '../src/util.ts';
 const privateCanary = 'secret-private-canary';
 const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-async function fixture(t: { after(callback: () => Promise<unknown>): void }) {
+async function fixture(t: { after(callback: () => Promise<unknown>): void }, fresh = false) {
   const base = await mkdtemp(join(tmpdir(), 'identity-connections-')), root = join(base, '.artifacts/identity'), id = 'a1b2c3d4';
   t.after(() => rm(base, { recursive: true, force: true }));
   const target: IdentityTarget = { version: 1, id, directory: resolve(root, id), stateDirectory: resolve(root, id, 'state'),
@@ -29,6 +29,7 @@ async function fixture(t: { after(callback: () => Promise<unknown>): void }) {
     issuer: 'http://127.0.0.1:15231/realms/neo', providerName: `footprint-identity-${id}-provider`, directoryName: `footprint-identity-${id}-directory`,
     fixtureDigest: 'a'.repeat(64), providerAddress: '172.18.0.5', images: { nodeImage: 'sha256:' + '1'.repeat(64), pythonImage: 'sha256:' + '2'.repeat(64),
       ldapImage: 'sha256:' + '3'.repeat(64), providerImage: 'sha256:' + '4'.repeat(64) } };
+  if (fresh) delete target.providerAddress;
   const realm = { realm: 'neo', components: { 'org.keycloak.storage.UserStorageProvider': [{ providerId: 'ldap', config: {
     enabled: ['true'], importEnabled: ['false'], cachePolicy: ['NO_CACHE'], connectionUrl: [`ldaps://${target.directoryName}:1636`],
     connectionPooling: ['false'], useTruststoreSpi: ['always'],
@@ -57,22 +58,24 @@ async function fixture(t: { after(callback: () => Promise<unknown>): void }) {
   const endpointSlices: any[] = [{ metadata: { name: 'neo-endpoints', namespace: target.namespace, labels: { 'kubernetes.io/service-name': 'neo' },
     ownerReferences: [{ kind: 'Service', uid: 'service-uid', controller: true }] }, ports: [{ port: 5230, protocol: 'TCP' }],
   endpoints: [{ addresses: ['10.244.0.7'], conditions: { ready: true }, targetRef: { kind: 'Pod', uid: 'pod-uid', name: 'neo-pod', namespace: target.namespace } }] }];
-  const state = { directory: true, provider: true, jwks: true, service: true, owned: true, sealed: true, afterExec: () => {} };
+  const state = { directory: true, provider: true, jwks: true, service: true, owned: true, exists: true, sealed: true,
+    providerAddress: '172.18.0.5', probeAddress: '172.18.0.5', afterExec: () => {} };
   const calls: { command: string; args: readonly string[]; options: CommandOptions }[] = [], logins: string[] = [];
   const ids = { 'identity-provider': 'b'.repeat(64), 'identity-directory': 'c'.repeat(64) };
-  const fixtureAdapter: Pick<ResourceAdapter, 'observe'> = { async observe(resource) { return { exists: true, owned: state.owned,
+  const fixtureAdapter: Pick<ResourceAdapter, 'observe'> = { async observe(resource) { return { exists: state.exists, owned: state.owned,
     physicalId: ids[resource.id as keyof typeof ids], fingerprint: fingerprint(resource.spec), ready: true }; } };
   const runner: CommandRunner = async (command, args, options) => {
     calls.push({ command, args, options });
     if (command === 'docker') {
       const provider = args.at(-1) === ids['identity-provider'];
       return { stdout: JSON.stringify({ id: args.at(-1), name: '/' + (provider ? target.providerName : target.directoryName),
-        running: provider ? state.provider : state.directory, address: provider ? target.providerAddress : '172.18.0.6' }) };
+        running: provider ? state.provider : state.directory, address: provider ? state.providerAddress : '172.18.0.6' }) };
     }
     if (args.includes('exec')) {
       const jwks = args.at(-2) === JWKS_CONNECTION_SCRIPT; state.afterExec();
       const ok = jwks ? state.jwks : state.service;
       return { stdout: JSON.stringify(jwks ? { ok, code: ok ? 'verified' : 'jwks-transport-failed', httpStatus: ok ? 200 : null, signingKeys: ok ? 1 : 0,
+        dnsAddresses: [state.probeAddress], remoteAddress: state.probeAddress,
         observedAt: Date.now(), latencyMs: 4, error: privateCanary } : { ok, stage: ok ? 'complete' : 'http', httpStatus: ok ? 200 : null,
         addresses: ['10.96.0.20'], responseStatus: 'ok', observedAt: Date.now(), latencyMs: 5, error: privateCanary,
         transportError: { message: privateCanary, cause: { code: 'ECONNREFUSED', address: '10.96.0.20', port: 5230 } } }) };
@@ -103,9 +106,39 @@ test('Neo identity edges use the actual admitted grant, Pod signing-key and Serv
   assert.equal(f.logins.length, 1);
   const commands = f.calls.filter(call => call.args.includes('exec'));
   assert.equal(commands.length, 2);
-  assert.deepEqual(JSON.parse(commands[0]!.args.at(-1)!), { url: `http://${f.target.providerAddress}:8080/realms/neo/protocol/openid-connect/certs`, timeoutMs: 3000 });
+  assert.deepEqual(JSON.parse(commands[0]!.args.at(-1)!), { url: `http://${f.target.providerAddress}:8080/realms/neo/protocol/openid-connect/certs`, expectedAddress: f.target.providerAddress, timeoutMs: 3000 });
   assert.ok(f.calls.every(call => !call.args.includes('sh') && call.options.timeoutMs <= 6000));
   assert.ok(!JSON.stringify(run).includes(privateCanary));
+});
+
+test('fresh Neo is one stable six-resource graph before identity exists, and probes bind its declared DNS to the owned address', async t => {
+  const f = await fixture(t, true), original = structuredClone(f.target), digest = f.graph.digest;
+  assert.equal(f.calls.length, 0, 'constructing a full connection adapter must not require a running provider');
+  assert.equal(f.graph.resources.length, 6);
+  const runtime = f.graph.resources.find(resource => resource.id === 'neo-app')!;
+  assert.ok(runtime.dependsOn!.includes('identity-provider'));
+  const node = (runtime.spec.spec as any).template.spec.containers.find((container: any) => container.name === 'node');
+  const url = `http://${f.target.providerName}:8080/realms/neo/protocol/openid-connect/certs`;
+  assert.equal(node.env.find((entry: any) => entry.name === 'JWKS_URL').value, url);
+  f.state.exists = false;
+  await assert.rejects(f.adapter.check(f.request(1)), ConnectionCheckError);
+  assert.equal(f.calls.filter(call => call.args.includes('exec')).length, 0);
+  f.state.exists = true;
+  const measured = await f.adapter.check(f.request(1));
+  assert.equal(measured.target, url);
+  assert.deepEqual(JSON.parse(f.calls.find(call => call.args.includes('exec'))!.args.at(-1)!), {
+    url, expectedAddress: f.state.providerAddress, timeoutMs: 3000,
+  });
+  assert.deepEqual((measured.details.probe as any).dnsAddresses, [f.state.providerAddress]);
+  assert.equal((measured.details.probe as any).remoteAddress, f.state.providerAddress);
+  assert.deepEqual(f.target, original, 'observed output must not mutate the declared target');
+  assert.equal(createIdentityGraph(f.target, { includeNeo: true }).digest, digest);
+  f.state.probeAddress = '172.18.0.99';
+  await assert.rejects(f.adapter.check(f.request(1)), error => {
+    assert.ok(error instanceof ConnectionCheckError);
+    assert.deepEqual((error.details!.probe as any).dnsAddresses, ['172.18.0.99'], 'bounded observed address explains the mismatch');
+    return true;
+  });
 });
 
 test('each Neo edge records a measured failure and a new recovered observation without reusing readiness or prior login', async t => {
@@ -186,7 +219,7 @@ test('fixed JWKS program performs actual HTTP and validates RSA signing keys wit
   await new Promise<void>((accept, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', accept); });
   t.after(() => new Promise<void>((accept, reject) => server.close(error => error ? reject(error) : accept())));
   const url = `http://127.0.0.1:${(server.address() as { port: number }).port}/certs`;
-  const run = async (timeoutMs = 1000) => JSON.parse((await promisify(execFile)(process.execPath, ['-e', JWKS_CONNECTION_SCRIPT, JSON.stringify({ url, timeoutMs })], { timeout: 1500 })).stdout);
+  const run = async (timeoutMs = 1000) => JSON.parse((await promisify(execFile)(process.execPath, ['-e', JWKS_CONNECTION_SCRIPT, JSON.stringify({ url, expectedAddress: '127.0.0.1', timeoutMs })], { timeout: 1500 })).stdout);
   assert.equal((await run()).ok, true);
   status = 503; body = { error: privateCanary }; assert.equal((await run()).code, 'jwks-http-failed');
   status = 200; body = { keys: [{ kty: 'RSA', kid: 'neo-key', alg: 'RS256', use: 'sig', n: privateCanary, e: 'AQAB' }] };
@@ -210,7 +243,32 @@ test('fixed JWKS program exits promptly after an actual refused connection witho
   await new Promise<void>((accept, reject) => reservation.close(error => error ? reject(error) : accept()));
   const started = Date.now();
   const result = JSON.parse((await promisify(execFile)(process.execPath, ['-e', JWKS_CONNECTION_SCRIPT,
-    JSON.stringify({ url: `http://127.0.0.1:${port}/certs`, timeoutMs: 200 })], { timeout: 1500 })).stdout);
+    JSON.stringify({ url: `http://127.0.0.1:${port}/certs`, expectedAddress: '127.0.0.1', timeoutMs: 200 })], { timeout: 1500 })).stdout);
   assert.equal(result.ok, false); assert.equal(result.code, 'jwks-transport-failed'); assert.equal(result.httpStatus, null);
   assert.ok(result.latencyMs < 1000); assert.ok(Date.now() - started < 1200);
+});
+
+test('fixed JWKS program checks real DNS and pins HTTP to the owned IPv4 before accepting keys', async t => {
+  const publicKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ format: 'jwk' });
+  let requests = 0;
+  const server = createServer((request, response) => {
+    requests++;
+    assert.ok(request.headers.host!.startsWith('localhost:'), 'the HTTP hostname must remain the declared provider name');
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ keys: [{ ...publicKey, kid: 'neo-key', alg: 'RS256', use: 'sig' }] }));
+  });
+  await new Promise<void>((accept, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', accept); });
+  t.after(() => new Promise<void>((accept, reject) => server.close(error => error ? reject(error) : accept())));
+  const url = `http://localhost:${(server.address() as { port: number }).port}/certs`;
+  const run = async (expectedAddress: string | undefined) => JSON.parse((await promisify(execFile)(process.execPath, [
+    '-e', JWKS_CONNECTION_SCRIPT, JSON.stringify({ url, expectedAddress, timeoutMs: 1000 }),
+  ], { timeout: 1500 })).stdout);
+  const verified = await run('127.0.0.1');
+  assert.equal(verified.ok, true);
+  assert.deepEqual(verified.dnsAddresses, ['127.0.0.1']);
+  assert.equal(verified.remoteAddress, '127.0.0.1');
+  assert.equal(requests, 1);
+  assert.equal((await run('127.0.0.2')).code, 'jwks-dns-unverified');
+  assert.equal((await run(undefined)).code, 'jwks-target-invalid');
+  assert.equal(requests, 1, 'unowned or missing address must stop before an HTTP request');
 });

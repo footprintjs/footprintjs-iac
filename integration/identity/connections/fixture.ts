@@ -34,7 +34,8 @@ export async function observeIdentityEndpoint(target: IdentityTarget, resource: 
     const name = String(resource.spec.name);
     if (actual.id !== owned.physicalId || actual.name !== '/' + name || typeof actual.running !== 'boolean'
       || typeof actual.address !== 'string' || (actual.running && isIP(actual.address) !== 4)
-      || (actual.running && id === 'identity-provider' && actual.address !== target.providerAddress)) throw Error('identity-endpoint-changed');
+      || (actual.running && id === 'identity-provider' && target.providerAddress !== undefined
+        && actual.address !== target.providerAddress)) throw Error('identity-endpoint-changed');
     return { id: actual.id, name, running: actual.running, address: actual.address };
 }
 

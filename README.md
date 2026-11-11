@@ -142,6 +142,27 @@ scheduled work; only runtime events establish that work started or became ready.
 This bridge uses FootPrint's existing `onRunStart` lifecycle; it does not add an
 `onBuild` hook to `CombinedRecorder` or introduce another workflow engine.
 
+A host can prepare stable grey-node positions before execution using the same
+native chart constructor:
+
+```ts
+import { previewDeploymentChart } from 'footprint-iac/progress/preview';
+import { readDeploymentSchedulePreview } from 'footprint-iac/progress';
+
+const plan = await engine.plan(binding.graph); // Separate read-only provider observations.
+const preview = previewDeploymentChart(plan, {
+  graphDigest: binding.graph.digest,
+  maxConcurrency: 1, // Match the engine's configured limit.
+});
+const admittedPreview = readDeploymentSchedulePreview(preview);
+```
+
+The factory is Node-side; the reader and `DeploymentSchedulePreview` type are
+browser-safe. The tagged preview contains no run ID, events or readiness verdict.
+It only describes the supplied plan's native schedule. Apply still replans, and
+its actual native chart takes precedence when published; recorded events alone
+advance resource progress.
+
 The independently versioned [footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens) repository supplies the separate dashboard. Its root and `/core` APIs expose TypeScript models and transport without React imports; `/react` provides the optional React surface using Flow Lens. The resource system chart and native execution chart are separate views: infrastructure relationships describe the system, while the execution recording shows what this run did. See [PROGRESS.md](docs/PROGRESS.md) for recorder usage, status semantics and the UI boundary.
 
 Connection checks run in a separate native FootPrint chart, after resources are ready:

@@ -5,6 +5,7 @@ import { createNeoStack } from '../neo/stack.ts';
 import type { IdentityContainerSpec } from './docker-types.ts';
 import type { IdentityTarget } from './target.ts';
 import { neoAccessPolicy } from './policy.ts';
+import { neoProviderJwksUrl } from './provider-endpoint.ts';
 
 export function createIdentityGraph(target: IdentityTarget, options: { includeNeo?: boolean; directoryEnabled?: boolean; providerEnabled?: boolean } = {}) {
   const directory: IdentityContainerSpec = {
@@ -30,7 +31,6 @@ export function createIdentityGraph(target: IdentityTarget, options: { includeNe
     { id: 'identity-provider', provider: 'local-identity-fixture', dependsOn: ['identity-directory'], spec: provider as unknown as JsonObject },
   ];
   if (options.includeNeo) {
-    if (!target.providerAddress || !/^\d+\.\d+\.\d+\.\d+$/.test(target.providerAddress)) throw new Error('Observe the identity provider address before binding Neo');
     const stack = createNeoStack(target.images);
     const appResources = JSON.parse(JSON.stringify(stack.resources).replaceAll('footprint-iac-neo-test', target.namespace)) as Resource[];
     const app = appResources.find(resource => resource.id === 'neo-app')!;
@@ -38,7 +38,7 @@ export function createIdentityGraph(target: IdentityTarget, options: { includeNe
     const template = ((app.spec.spec as JsonObject).template as JsonObject).spec as JsonObject;
     const node = (template.containers as JsonObject[]).find(container => container.name === 'node')!;
     (node.env as JsonObject[]).push(
-      { name: 'JWKS_URL', value: `http://${target.providerAddress}:8080/realms/neo/protocol/openid-connect/certs` },
+      { name: 'JWKS_URL', value: neoProviderJwksUrl(target) },
       { name: 'JWT_ISSUER', value: target.issuer }, { name: 'JWT_AUDIENCE', value: 'neo' },
       { name: 'OIDC_AUTHORITY', value: target.issuer }, { name: 'OIDC_CLIENT_ID', value: 'neo' },
       { name: 'OIDC_REDIRECT_URI', value: `http://127.0.0.1:${target.neoPort}/?oidcCallback=1` },
