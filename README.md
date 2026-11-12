@@ -139,6 +139,91 @@ changes stay blocked until its outcome is resolved; this prototype does not yet
 provide a crash-recovery API. Do not treat an interrupted attempt as a successful
 upgrade or start another history to bypass it.
 
+## Create or find, then connect and verify
+
+The base resource workflow records four actual native stages:
+
+```text
+Create resource / Find existing → Connection details → Connect application → Verify connection and access
+```
+
+Resource acquisition and application integration are separate tasks. In
+`create` mode the host's provisioner creates or reconciles the source. In
+`existing` mode only the read-only lookup runs; a missing source fails and never
+falls back to creation. Both return the same public `ResourceHandle`, so the
+connection and verification stages work with either source. Company service
+catalogs, cloud providers, on-premises services and manual provisioning can
+supply this contract. The source resource ID is distinct from the workflow ID.
+
+```ts
+import type { ResourceFlowAdapters } from 'footprint-iac/resource-flow';
+import { FileResourceFlowStore, ResourceFlowWorkflow } from 'footprint-iac/resource-flow/workflow';
+
+function companyHistoryConnection(adapters: ResourceFlowAdapters, configurationDigest: string) {
+  return new ResourceFlowWorkflow({
+    definition: {
+      id: 'application-history-connection', resourceId: 'company-history',
+      label: 'Connect application history', mode: 'existing',
+      target: { id: 'office-environment', scope: 'owned-target-and-resource-selection' },
+      configurationDigest, // SHA-256 of the reviewed host-selected consumer configuration.
+    },
+    profiles: [{ id: 'office-history', label: 'Office history database' }],
+    store: new FileResourceFlowStore('.artifacts/company-history-connection'),
+    adapters,
+  });
+}
+// await workflow.start();
+// const paused = await workflow.snapshot();
+// await workflow.resume({ pauseToken: paused.pause!.token, profileId: 'office-history' });
+```
+
+The host supplies small `create`, `find`, `resolveDetails`, `validate`, `connect`
+and `verify` adapters. `create` is optional in existing mode. Connection details
+contain the selected profile ID, resource ID, credential-free endpoint URL,
+protocol and optional credential/trust references. A real create's unknown
+endpoint can be resolved afterward through provider observation. The same
+details resolver can read a company profile without provisioning anything.
+`connect` configures the authorized consumer, routes or permissions; `verify`
+returns measured, individually identified outcomes. A successful configuration
+call does not imply successful communication or access.
+
+If automatic details are unavailable, the details stage calls FootPrint's real
+`interrupt`. The native checkpoint, completed acquisition and exact pending
+profile choices are durably retained. No lock stays held during a human wait.
+The browser can select only a configured opaque profile ID and echo its exact
+one-use pause token; it cannot send credentials, an endpoint, a target or code.
+Resolve credentials privately behind the adapter. Checkpoints contain actual
+shared state, so recording redaction is not a password-storage mechanism.
+
+A fresh workflow process can resume the same ledger. Definition, source,
+configuration, target, profile catalog and checkpoint must still match. Lookup
+and validation re-observe the same physical resource before connection. Resume
+starts at the details stage and does not repeat a completed create. Each native
+leg has its own run ID and evidence/JSONL file, with an explicit link to the
+paused leg; this is not a fabricated single uninterrupted run. Resource and
+connection receipts can link the child deployment and probe recordings.
+
+Use `ResourceFlowAdapterError(code, receipt)` for a failed child operation that
+already has native evidence. The workflow records its bounded code and receipt;
+arbitrary provider exceptions are replaced with a fixed public failure before
+FootPrint sees them. Trusted adapters must return only public references and
+measurements. Failed verification remains failed, and incomplete capture never
+reports a passed workflow. An interrupted effectful process retains its running
+intent and blocks a fresh start; inspect/reconcile its private outcomes rather
+than copying the ledger or replaying a create blindly. Existing engine ownership
+and master revision guards are unchanged. This workflow does not import an
+externally owned source into infrastructure management.
+
+The pure `footprint-iac/resource-flow` export provides JSON types and the bounded
+`readResourceFlowState` reader for headless clients. Node orchestration lives in
+the separate `/workflow` export. Subscribers receive provider/recorder-driven
+state changes, including waiting, failure and partial outcomes; there are no
+display timers or fake create events for referenced infrastructure.
+
+For the complete portable Neo Create/Find/human-resume acceptance setup, use the
+[resource workflow laptop handoff](docs/NEO-RESOURCE-FLOW-HANDOFF.md). It is separate
+from the older one-build and master-upgrade examples.
+
 ## Recorded native outputs
 
 With a Kubernetes-bound design, export the complete desired graph through native output recorders:

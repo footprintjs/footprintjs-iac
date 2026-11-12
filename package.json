@@ -80,6 +80,14 @@
     "./integration/identity": {
       "types": "./dist/integration/identity/index.d.ts",
       "import": "./dist/integration/identity/index.js"
+    },
+    "./resource-flow": {
+      "types": "./dist/src/resource-flow/index.d.ts",
+      "import": "./dist/src/resource-flow/index.js"
+    },
+    "./resource-flow/workflow": {
+      "types": "./dist/src/resource-flow/node.d.ts",
+      "import": "./dist/src/resource-flow/node.js"
     }
   },
   "files": [

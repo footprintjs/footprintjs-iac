@@ -2,6 +2,83 @@
 
 This optional integration binds a generic identity source and exact permission policy to Neo. OpenLDAP is the directory adapter; Keycloak provides OIDC authorization-code login with PKCE. Neo verifies signed access tokens and enforces `neo:chat` on `neo` for its protected application routes. A reader is allowed; a signed-in guest is denied. Existing conversation ownership checks remain in the app.
 
+## Separate Create/Find, Connect and Verify
+
+For a complete portable setup with the published v2 consumer, local checks,
+human process restart and outage/recovery proof, follow the dedicated
+[resource workflow handoff](../../docs/NEO-RESOURCE-FLOW-HANDOFF.md). Keep its
+Create/Find viewer sequence together; the later one-build instructions describe
+the separate legacy viewer route.
+
+The optional `createNeoResourceFlow` wrapper consumes the generic base
+`ResourceFlowWorkflow`. It records four real native stages:
+
+1. **Create resource** provisions only the directory and sign-in service, or
+   **Find existing resource** reads and validates those already running services.
+2. **Connection details** reads the acquired service's actual OIDC discovery
+   document and resolves an allowlisted profile. Human mode pauses here, before
+   any Neo consumer configuration, and resumes from a native checkpoint.
+3. **Connect application** consumes those details to build Neo's issuer and
+   authority configuration, applies only the four owned Kubernetes consumer
+   resources, and opens or verifies its owned loopback forward.
+4. **Verify connection and access** performs the same three real communication
+   checks and seven identity/access checks described below. Each child native
+   deployment and verification run has an explicit evidence receipt.
+
+Prepare one target and its protected application images using the instructions
+below. Leave its resources absent for the first run. From the Lens sibling:
+
+```sh
+node examples/neo-resource-flow.ts /printed/identity/target.json --mode=create --details=automatic --flow=create-auto --port=0
+```
+
+Opening the printed loopback URL performs no deployment. Start the workflow in
+Simple mode. The acquisition plan contains two identity resources; Connect has
+only the namespace, policy, Neo Deployment and Service. The two plans retain the
+same stack name and durable inventory, so source ownership stays verified while
+the Connect adapter has no source-resource mutation in its plan. Neo is first
+deployed only after the identity binding is validated; no temporary unprotected
+application is exposed.
+
+After the first run, reuse the exact target as an existing-resource reference:
+
+```sh
+node examples/neo-resource-flow.ts /printed/identity/target.json --mode=existing --details=automatic --flow=find-auto --port=0
+```
+
+Find never invokes the source creation engine. It verifies the exact directory
+and provider container identities and configuration through a read-only adapter.
+The same Connect stage reconciles the consumer. An already configured consumer
+will correctly produce no-op operations; Find does not claim to have created the
+referenced services, and Connect never applies or removes them. This fixture
+references its prepared local services; it does not discover arbitrary company
+LDAP servers or silently import them into management.
+
+Exercise a real human handoff with another execution ID:
+
+```sh
+node examples/neo-resource-flow.ts /printed/identity/target.json --mode=existing --details=human --flow=find-human --port=0
+```
+
+The flow stops at **Connection details** with Connect and Verify unstarted.
+Choose the configured profile and continue. The input is an opaque profile ID,
+not a password, endpoint or command. The host resolves credentials privately from
+the sealed fixture. The pause releases the state lock. Restarting the same
+command while paused loads the saved checkpoint; its one-use token, definition,
+source identity, target, profile catalog and intended consumer configuration must
+still match before connection can proceed. Resource acquisition is not repeated
+when resuming at the details stage. Changed/replaced services fail before any
+consumer mutation.
+
+Execution state and native segments are retained under
+`<target>/resource-flows/<flow-id>/`. `infra/` stores the actual two- or
+four-resource child results, while `connections/` and `identity/` retain measured
+checks. Lens Details exposes the public stage state, intended graphs and native
+evidence; private credential and checkpoint files are not published as artifacts.
+The flow leaves canonical `target.json`, existing master revision history, other
+namespaces and other viewers unchanged. It does not promote a master revision
+implicitly; its create/connect child recordings remain separately identifiable.
+
 The default Neo fixture and its existing namespace are unchanged. This integration creates a separate namespace in an explicitly prepared local recording cluster and two ownership-labelled local containers on its `kind` network. Every creation, start/stop, repair and cleanup goes through `InfraEngine`. The container adapter is a narrow local fixture adapter, not a general Docker deployment provider.
 
 ## Scope

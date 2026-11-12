@@ -3,6 +3,7 @@ import { jsonCopy } from '../../src/graph/data.ts';
 import type { JsonObject, StackState } from '../../src/types.ts';
 import { canonical, fingerprint } from '../../src/util.ts';
 import { createIdentityGraph } from './graph.ts';
+import { createNeoConsumerGraph } from './create-consumer-graph.ts';
 import type { IdentityTarget } from './target.ts';
 
 export type NeoIdentityFaultAction = 'directory-down' | 'directory-restore' | 'provider-down' | 'provider-restore' | 'service-route-down' | 'service-route-restore';
@@ -21,6 +22,8 @@ export function createNeoIdentityFaultGraph(target: IdentityTarget, input: Stack
     throw Error('Fault checks require the complete deployed identity inventory');
   }
   const resources = structuredClone(baseline.resources);
+  const separatedApp = includeNeo ? createNeoConsumerGraph(target).resources.find(resource => resource.id === 'neo-app') : undefined;
+  let separatedConsumer = false;
   for (const resource of resources) {
     const saved = state.resources[resource.id]!;
     if (!saved || saved.pending || typeof saved.physicalId !== 'string' || !saved.physicalId
@@ -34,7 +37,14 @@ export function createNeoIdentityFaultGraph(target: IdentityTarget, input: Stack
       if (savedPort !== declaredPort && savedPort !== NEO_UNAVAILABLE_SERVICE_PORT) throw Error('Unsupported recorded Service route');
       ports(resource.spec)[0]!.targetPort = savedPort!;
     }
-    if (canonical(resource) !== canonical(saved.resource)) throw Error('Fault inventory differs from the prepared identity graph');
+    if (canonical(resource) !== canonical(saved.resource)) {
+      // The native parent flow already gates identity acquisition. Admit only its exact known consumer declaration.
+      if (resource.id !== 'neo-app' || !separatedApp || canonical(saved.resource) !== canonical(separatedApp)) {
+        throw Error('Fault inventory differs from the prepared identity graph');
+      }
+      resource.dependsOn = [...separatedApp.dependsOn!];
+      separatedConsumer = true;
+    }
   }
   const resourceId = action.startsWith('directory-') ? 'identity-directory' : action.startsWith('provider-') ? 'identity-provider' : 'neo-service';
   const selected = resources.find(resource => resource.id === resourceId);
@@ -43,5 +53,6 @@ export function createNeoIdentityFaultGraph(target: IdentityTarget, input: Stack
     ? NEO_UNAVAILABLE_SERVICE_PORT : ports(baseline.resources.find(resource => resource.id === resourceId)!.spec)[0]!.targetPort!;
   else selected.spec.enabled = action.endsWith('-restore');
   return { resourceId, graph: compileGraph({ name: baseline.name, resources, boundaries: [...baseline.boundaries],
-    memberships: [...baseline.memberships], relations: [...baseline.relations] }) };
+    memberships: [...baseline.memberships], relations: baseline.relations.filter(relation => !(separatedConsumer
+      && relation.kind === 'order' && relation.from === 'identity-provider' && relation.to === 'neo-app')) }) };
 }

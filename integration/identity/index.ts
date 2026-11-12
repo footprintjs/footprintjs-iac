@@ -6,3 +6,6 @@ export { neoAccessPolicy } from './policy.ts';
 export { neoIdentityConnectionAdapter, type NeoIdentityConnectionOptions } from './connections.ts';
 export { applyNeoIdentityFault, type NeoIdentityFaultOptions } from './apply-fault.ts';
 export type { NeoIdentityFaultAction } from './fault-graph.ts';
+export { createNeoResourceFlow, type NeoResourceFlowOptions, type NeoResourceFlowDependencies } from './resource-flow.ts';
+export { createNeoAcquisitionGraph } from './create-acquisition-graph.ts';
+export { createNeoConsumerGraph } from './create-consumer-graph.ts';
