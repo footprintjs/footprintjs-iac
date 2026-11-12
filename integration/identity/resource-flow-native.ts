@@ -14,7 +14,7 @@ export async function applyNeoFlowGraph(engine: InfraEngine, recorder: Deploymen
     throw Error('A connection plan cannot mutate its referenced identity services');
   }
   const result = await engine.apply(graph, { expectedPlanDigest: fingerprintPlan(plan) });
-  await writeNeoFlowJson(join(directory, 'infra', result.runId + '.json'), { phase, graph, result, events: recorder.getEvents() });
+  await writeNeoFlowJson(join(directory, 'infra', result.runId + '.json'), { phase, graph, result, events: recorder.getEvents(), snapshot: recorder.getSnapshot() });
   const receipt = { id: 'neo-native-' + phase, runId: result.runId, evidencePath: result.evidencePath };
   if (!result.ok) throw new ResourceFlowAdapterError('native-' + phase + '-failed', receipt);
   if (result.chartStatus?.published !== true || result.chartStatus.failed || result.traceStatus?.flushed !== true || result.traceStatus.failed) {

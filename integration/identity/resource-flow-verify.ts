@@ -1,6 +1,6 @@
 import { join } from 'node:path';
-import { checkConnections, type ConnectionAdapter } from '../../src/connections/index.ts';
-import { checkIdentityAccess, type AccessCheckAdapter } from '../../src/identity/index.ts';
+import { checkConnections, createConnectionRecorder, type ConnectionAdapter, type ConnectionSnapshot, type ConnectionRunResult } from '../../src/connections/index.ts';
+import { checkIdentityAccess, createIdentityRecorder, type AccessCheckAdapter, type IdentitySnapshot, type IdentityRunResult } from '../../src/identity/index.ts';
 import type { VerificationResult } from '../../src/resource-flow/index.ts';
 import { neoIdentityCheckAdapter, neoIdentityChecks } from './checks.ts';
 import { neoIdentityConnectionAdapter } from './connections.ts';
@@ -13,18 +13,41 @@ export interface NeoFlowVerificationOptions {
   identity?: (target: IdentityTarget) => Promise<AccessCheckAdapter>;
 }
 
+export interface NeoFlowCheckObserver {
+  connections?(snapshot: ConnectionSnapshot, result?: ConnectionRunResult): void;
+  identity?(snapshot: IdentitySnapshot, result?: IdentityRunResult): void;
+}
+
+export async function checkNeoFlowConnections(target: IdentityTarget, directory: string,
+  options: NeoFlowVerificationOptions = {}, observer: NeoFlowCheckObserver = {}): Promise<ConnectionRunResult> {
+  const graph = createIdentityGraph(target, { includeNeo: true });
+  const recorder = createConnectionRecorder({ id: 'neo-resource-flow-connections' });
+  recorder.subscribe(() => observer.connections?.(recorder.getSnapshot()));
+  const result = await checkConnections({ graph, adapter: await (options.connections ?? neoIdentityConnectionAdapter)(target),
+    recorders: [recorder], traceDirectory: join(directory, 'connection-traces') });
+  await writeNeoFlowJson(join(directory, 'connections', result.runId + '.json'), result);
+  observer.connections?.(recorder.getSnapshot(), result);
+  return result;
+}
+
+export async function checkNeoFlowIdentity(target: IdentityTarget, directory: string,
+  options: NeoFlowVerificationOptions = {}, observer: NeoFlowCheckObserver = {}): Promise<IdentityRunResult> {
+  const recorder = createIdentityRecorder({ id: 'neo-resource-flow-access' });
+  recorder.subscribe(() => observer.identity?.(recorder.getSnapshot()));
+  const result = await checkIdentityAccess({ stack: createIdentityGraph(target, { includeNeo: true }).name, checks: neoIdentityChecks,
+    adapter: await (options.identity ?? neoIdentityCheckAdapter)(target), recorders: [recorder], traceDirectory: join(directory, 'identity-traces') });
+  await writeNeoFlowJson(join(directory, 'identity', result.runId + '.json'), result);
+  observer.identity?.(recorder.getSnapshot(), result);
+  return result;
+}
+
 /** Verification measures the configured consumer; it never substitutes a deployment's readiness verdict. */
 export async function verifyNeoResourceFlow(target: IdentityTarget, directory: string,
-  options: NeoFlowVerificationOptions = {}): Promise<VerificationResult> {
-  const graph = createIdentityGraph(target, { includeNeo: true });
-  const connections = await checkConnections({ graph, adapter: await (options.connections ?? neoIdentityConnectionAdapter)(target),
-    traceDirectory: join(directory, 'connection-traces') });
+  options: NeoFlowVerificationOptions = {}, observer: NeoFlowCheckObserver = {}): Promise<VerificationResult> {
+  const connections = await checkNeoFlowConnections(target, directory, options, observer);
   const connectionPath = join(directory, 'connections', connections.runId + '.json');
-  await writeNeoFlowJson(connectionPath, connections);
-  const identity = await checkIdentityAccess({ stack: graph.name, checks: neoIdentityChecks,
-    adapter: await (options.identity ?? neoIdentityCheckAdapter)(target), traceDirectory: join(directory, 'identity-traces') });
+  const identity = await checkNeoFlowIdentity(target, directory, options, observer);
   const identityPath = join(directory, 'identity', identity.runId + '.json');
-  await writeNeoFlowJson(identityPath, identity);
   if ([connections.traceStatus, identity.traceStatus].some(capture => !capture?.flushed || capture.failed)) {
     throw Error('Neo connection or access recording is incomplete');
   }

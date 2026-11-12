@@ -11,6 +11,8 @@ export type NeoFlowIdentityObservation = IdentityFixtureObservation;
 export interface NeoFlowObservationOptions {
   loadTarget?: typeof loadIdentityTarget;
   runner?: CommandRunner;
+  /** Read-only probes may measure a stopped but still exactly owned source. */
+  allowStopped?: boolean;
 }
 export function neoFlowTargetScope(target: IdentityTarget): string {
   return fingerprint({ id: target.id, context: target.context, kubeconfig: target.kubeconfig, namespace: target.namespace,
@@ -32,6 +34,6 @@ export async function observeNeoFlowIdentity(target: IdentityTarget, options: Ne
   const fixture = new IdentityFixtureAdapter(target.id, command);
   const graph = createNeoAcquisitionGraph(target);
   const observed = await observeIdentityFixture(target, graph.resources, graph.name, fixture, runner);
-  if (!observed.directory.running || !observed.provider.running) throw Error('The referenced identity services are not running');
+  if (!options.allowStopped && (!observed.directory.running || !observed.provider.running)) throw Error('The referenced identity services are not running');
   return observed;
 }

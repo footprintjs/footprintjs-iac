@@ -288,3 +288,37 @@ When finished, the explicit ownership-checked cleanup removes this integration's
 ```sh
 npm run identity:cleanup -- /printed/identity/target.json
 ```
+
+The Create/Find composition also exposes a browser-safe observation feed:
+
+```ts
+import { createNeoResourceFlow } from 'footprint-iac/integration/identity';
+import type { NeoResourceFlowObservation } from 'footprint-iac/integration/identity/resource-flow-view';
+
+const flow = await createNeoResourceFlow(preparedTargetPath, { mode: 'existing' });
+const show = (value: NeoResourceFlowObservation) => render(value);
+show(await flow.observation.snapshot());
+const unsubscribe = flow.observation.subscribe(show);
+await flow.workflow.start();
+// These use the same fixed target and record new point-in-time native runs.
+await flow.recheckConnections();
+await flow.recheckIdentity();
+unsubscribe();
+```
+
+The feed preserves the real two-resource acquisition chart and four-resource
+consumer chart as separate runs. Find publishes the two measured physical
+references and the actual parent acquisition stage; it creates no synthetic apply
+chart. Each child run carries its parent execution and definition references.
+Live connection and access recorder events include checking and their measured
+outcome. Readiness alone never establishes a communication edge.
+
+Reopening the same flow reads its pinned local evidence without provider calls.
+Missing or invalid retained evidence stays unknown/incomplete. Earlier recordings
+can recover their parent-pinned native runs; unavailable exact source lookup facts
+stay unknown. Observer failures are isolated from execution. Rechecks first
+validate the exact prepared target and physical ownership, permit a still-owned
+stopped source to produce recorded failed probes, and refuse a replaced source.
+They neither apply infrastructure nor change the original parent verification.
+The public feed omits raw provider diagnostics and response bodies; the private
+native evidence remains available for local diagnosis.

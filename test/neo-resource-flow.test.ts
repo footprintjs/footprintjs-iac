@@ -36,7 +36,7 @@ async function fixture(t: { after(callback: () => Promise<void>): void }) {
       store: new FileStateStore(target.stateDirectory), strategy: new ReconcileStrategy(1),
       traceDirectory: join(directory, 'deployment-traces'), recorders: [recorder], chartObservers: [recorder] }) };
   };
-  const observed = { find: 0, discovery: 0, forward: 0, connections: 0, access: 0, replaced: false };
+  const observed = { find: 0, discovery: 0, forward: 0, connections: 0, access: 0, replaced: false, stopped: false };
   const dependencies: NeoResourceFlowDependencies = {
     engine, loadTarget: async path => JSON.parse(await readFile(path!, 'utf8')) as IdentityTarget,
     async observe() {
@@ -47,7 +47,7 @@ async function fixture(t: { after(callback: () => Promise<void>): void }) {
         if (!state.exists || !state.owned) throw Error('Missing existing identity services');
       }
       return { directory: { id: 'a'.repeat(64), name: target.directoryName, running: true, address: '172.20.0.2' },
-        provider: { id: (observed.replaced ? 'c' : 'b').repeat(64), name: target.providerName, running: true, address: '172.20.0.3' } };
+        provider: { id: (observed.replaced ? 'c' : 'b').repeat(64), name: target.providerName, running: !observed.stopped, address: '172.20.0.3' } };
     },
     discoveryFetch: async () => {
       observed.discovery++; return Response.json({ issuer: target.issuer,
@@ -227,4 +227,118 @@ test('owned provider faults accept the exact completed separated consumer invent
     mutate(selected.resource); selected.fingerprint = fingerprint(selected.resource.spec);
     assert.throws(() => createNeoIdentityFaultGraph(f.target, tampered, 'provider-down'), /differs/);
   }
+});
+
+test('Neo observer streams actual two/four resource charts and native checks, then reopens without provider reads or effects', async t => {
+  const f = await fixture(t), flow = await f.open({ mode: 'create', id: 'observable-create' });
+  const frames: Awaited<ReturnType<typeof flow.observation.snapshot>>[] = [];
+  const unsubscribe = flow.observation.subscribe(value => { frames.push(value); assert.ok(Object.isFrozen(value)); });
+  flow.observation.subscribe(() => { throw Error('viewer failed'); });
+  const initial = await flow.observation.snapshot();
+  assert.equal(initial.parent.executionId, null); assert.deepEqual(initial.deployments, []);
+  assert.deepEqual(initial.connections, []); assert.deepEqual(initial.identities, []);
+  await flow.workflow.start(); unsubscribe();
+  const final = await flow.observation.snapshot();
+  assert.equal(final.parent.status, 'passed'); assert.ok(final.subscriberFailures > 0);
+  assert.deepEqual(final.deployments.map(value => [value.phase, value.snapshot.chart?.resources.length]), [['acquire', 2], ['connect', 4]]);
+  assert.ok(final.deployments.every(value => value.snapshot.runId !== final.parent.segments[0]?.runId));
+  assert.ok(frames.some(frame => frame.deployments.some(run => run.phase === 'acquire' && run.snapshot.events.some(event => event.status === 'deploying') && !run.result)));
+  assert.ok(frames.some(frame => frame.connections.some(run => run.snapshot.events.some(event => event.status === 'checking') && !run.result)));
+  assert.ok(frames.some(frame => frame.identities.some(run => run.snapshot.events.some(event => event.status === 'checking') && !run.result)));
+  for (const child of [...final.deployments, ...final.connections, ...final.identities]) {
+    assert.equal(child.executionId, final.parent.executionId); assert.equal(child.definitionDigest, final.parent.definitionDigest);
+    assert.equal(child.origin, 'live'); assert.ok(child.result?.runId); assert.equal(child.result?.traceFlushed, true);
+  }
+  assert.equal(final.source?.physicalId, final.parent.resource?.physicalId);
+  assert.deepEqual(final.source?.resources.map(value => value.resourceId), ['identity-directory', 'identity-provider']);
+  assert.ok(final.source?.observedAt); assert.ok(final.source?.parentAcquire?.runtimeStageId);
+  assert.equal(final.source?.parentAcquire?.runId, final.parent.segments[0]?.runId);
+  assert.equal(final.retainedEvidence, 'complete');
+  const before = structuredClone({ counters: f.observed, calls: f.simulator.calls });
+  const reopened = await f.open({ mode: 'create', id: 'observable-create' });
+  const restored = await reopened.observation.snapshot();
+  assert.equal(restored.retainedEvidence, 'complete'); assert.deepEqual(restored.source, final.source);
+  assert.deepEqual(restored.deployments.map(value => value.snapshot), final.deployments.map(value => value.snapshot));
+  assert.deepEqual(restored.connections.map(value => value.snapshot), final.connections.map(value => value.snapshot));
+  assert.deepEqual(restored.identities.map(value => value.snapshot), final.identities.map(value => value.snapshot));
+  assert.ok([...restored.deployments, ...restored.connections, ...restored.identities].every(value => value.origin === 'evidence'));
+  assert.deepEqual({ counters: f.observed, calls: f.simulator.calls }, before, 'view/reopen cannot perform even a provider read');
+});
+
+test('Neo Find observer retains measured source references across a human restart and never invents acquisition apply', async t => {
+  const f = await fixture(t), baseline = f.engine(f.target);
+  await baseline.engine.apply(createNeoAcquisitionGraph(f.target)); f.simulator.calls.length = 0;
+  const flow = await f.open({ mode: 'existing', details: 'human', id: 'observable-find' });
+  await assert.rejects(flow.recheckConnections(), /Complete/);
+  await flow.workflow.start();
+  const waiting = await flow.observation.snapshot();
+  assert.equal(waiting.parent.status, 'paused'); assert.deepEqual(waiting.deployments, []);
+  assert.equal(waiting.source?.mode, 'existing'); assert.ok(waiting.source?.parentAcquire?.runtimeStageId);
+  assert.equal(waiting.source?.parentAcquire?.runId, waiting.parent.segments[0]?.runId);
+  const reads = f.observed.find, reopened = await f.open({ mode: 'existing', details: 'human', id: 'observable-find' });
+  const restored = await reopened.observation.snapshot();
+  assert.equal(f.observed.find, reads); assert.deepEqual(restored.source, waiting.source);
+  await reopened.workflow.resume({ pauseToken: waiting.parent.pause!.token, profileId: flow.profileId });
+  const complete = await reopened.observation.snapshot();
+  assert.equal(complete.parent.status, 'passed'); assert.equal(complete.deployments.length, 1);
+  assert.equal(complete.deployments[0]?.phase, 'connect'); assert.equal(complete.deployments[0]?.snapshot.chart?.resources.length, 4);
+  assert.deepEqual(complete.source, waiting.source, 'resume does not claim a new acquisition or alter its observed time');
+});
+
+test('fixed Neo rechecks stream failed and recovered checks under distinct runs without rerunning or changing the parent', async t => {
+  const f = await fixture(t); let failed = false;
+  f.dependencies.connections = async () => ({ async check(request) {
+    if (failed) throw Error('private-provider-error-should-never-reach-browser');
+    return { method: 'oidc-ldaps-federation', target: 'ldaps://identity.example.test:1636', observedAt: Date.now(), latencyMs: 1, details: {} };
+  } });
+  f.dependencies.identity = async () => ({ id: 'observed-identity', async check(request) {
+    return { verdict: failed ? 'unavailable' : request.expected, observedAt: Date.now(), latencyMs: 1 };
+  } });
+  const flow = await f.open({ mode: 'create', id: 'observable-rechecks' }); await flow.workflow.start();
+  const parent = await flow.workflow.snapshot(), calls = structuredClone(f.simulator.calls);
+  failed = true; f.observed.stopped = true;
+  assert.equal((await flow.recheckConnections()).ok, false); assert.equal((await flow.recheckIdentity()).ok, false);
+  failed = false; f.observed.stopped = false;
+  assert.equal((await flow.recheckConnections()).ok, true); assert.equal((await flow.recheckIdentity()).ok, true);
+  const state = await flow.observation.snapshot();
+  assert.deepEqual(await flow.workflow.snapshot(), parent); assert.deepEqual(f.simulator.calls, calls);
+  for (const checks of [state.connections, state.identities]) {
+    assert.equal(checks.length, 3); assert.deepEqual(checks.map(value => value.purpose), ['verify', 'recheck', 'recheck']);
+    assert.deepEqual(checks.map(value => value.result?.ok), [true, false, true]);
+    assert.equal(new Set(checks.map(value => value.snapshot.runId)).size, 3);
+  }
+  assert.ok(!JSON.stringify(state).includes('private-provider-error'));
+  const before = structuredClone(f.observed), reopened = await f.open({ mode: 'create', id: 'observable-rechecks' });
+  const restored = await reopened.observation.snapshot();
+  assert.equal(restored.retainedEvidence, 'complete'); assert.equal(restored.connections.length, 3); assert.equal(restored.identities.length, 3);
+  assert.deepEqual(f.observed, before);
+  f.observed.replaced = true;
+  await assert.rejects(reopened.recheckConnections(), /replaced/);
+  assert.equal((await reopened.observation.snapshot()).connections.length, 3);
+});
+
+test('tampered retained child evidence stays unknown and never invokes providers on reopening', async t => {
+  const f = await fixture(t), flow = await f.open({ mode: 'create', id: 'observable-tamper' });
+  await flow.workflow.start();
+  const state = await flow.observation.snapshot(), native = state.deployments[0]!;
+  const path = join(flow.directory, 'infra', native.result!.runId + '.json');
+  const saved = JSON.parse(await readFile(path, 'utf8'));
+  saved.events[0].resourceId = 'invented-resource'; await writeNeoFlowJson(path, saved);
+  const before = structuredClone({ counters: f.observed, calls: f.simulator.calls });
+  const reopened = await f.open({ mode: 'create', id: 'observable-tamper' });
+  const observed = await reopened.observation.snapshot();
+  assert.equal(observed.retainedEvidence, 'incomplete'); assert.deepEqual(observed.deployments, []);
+  assert.deepEqual({ counters: f.observed, calls: f.simulator.calls }, before);
+});
+
+test('legacy parent-pinned native evidence rehydrates while missing source lookup facts remain unknown', async t => {
+  const f = await fixture(t), flow = await f.open({ mode: 'create', id: 'observable-legacy' });
+  await flow.workflow.start();
+  await rm(join(flow.directory, 'observer.json'));
+  const before = structuredClone({ counters: f.observed, calls: f.simulator.calls });
+  const reopened = await f.open({ mode: 'create', id: 'observable-legacy' }), state = await reopened.observation.snapshot();
+  assert.equal(state.retainedEvidence, 'complete'); assert.equal(state.source, undefined);
+  assert.equal(state.deployments.length, 2); assert.equal(state.connections.length, 1); assert.equal(state.identities.length, 1);
+  assert.ok([...state.deployments, ...state.connections, ...state.identities].every(value => value.origin === 'evidence'));
+  assert.deepEqual({ counters: f.observed, calls: f.simulator.calls }, before);
 });

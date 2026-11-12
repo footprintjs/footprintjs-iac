@@ -106,8 +106,9 @@ From the sibling Lens checkout, using that same `IAC_TARGET`:
 node examples/neo-resource-flow.ts "$IAC_TARGET" --mode=create --details=automatic --flow=create-auto --port=0
 ```
 
-Open the printed URL in Simple mode. Opening the viewer has no provider effects.
-The four actual stages start uncompleted. Start once and observe:
+Open the printed URL in Simple mode. Opening the viewer does not deploy resources.
+The complete six-object resource chart starts grey, with four compact workflow
+stages above it. Start once and observe:
 
 1. **Create resource:** two real source creates, the directory and sign-in
    service. Their actual physical identities are recorded.
@@ -120,7 +121,14 @@ The four actual stages start uncompleted. Start once and observe:
 4. **Verify connection and access:** three real communication checks and seven
    directory/login/application access checks, each with native evidence.
 
-Require two Ready Neo containers with no unexpected restarts. Use **Open Neo**,
+Keep the same canvas throughout creation, connection and measured checks.
+Details retains deployment/system views, capabilities, inspectors, artifacts
+and separate parent/child native recordings. Source and consumer child runs
+remain distinct; the viewer never invents one six-resource native apply run.
+Existing master history is read-only in this workflow host. Its fixed phase
+graphs supply planned positions without creating progress or readiness.
+
+Require two Ready Neo containers with no unexpected restarts. Use **Open app**,
 confirm its v2 label, sign in as the generated Alice reader and run **run a zone
 redundancy audit for the RNV site**. Separately sign in as Bob and require
 **Access denied**. Passwords are in the target's private `credentials.json`;
@@ -229,6 +237,13 @@ retain its recorded outcome and resolve that specific resource before finishing.
 
 These read-only checks produce new evidence under `acceptance/`; they do not
 rewrite the completed four-stage workflow or claim continuous monitoring.
+To watch the same failure/recovery in Lens, keep its completed workflow open,
+apply the scoped provider fault from another terminal, then use **Check** beside
+Connections and Sign-in & access. Restore in a `finally` block and repeat both
+checks. The two identity-related paths fail during a provider outage while the
+Service path may remain connected. Rechecks retain their own native recordings;
+the strip says **Workflow complete** for the historical parent, and the canvas
+and check summaries show the latest measured health.
 
 ## 8. Evidence and return checklist
 
