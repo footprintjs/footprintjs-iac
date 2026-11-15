@@ -83,6 +83,17 @@ Required options:
   suites. Required results are projected to known IDs/statuses. Private reports,
   raw provider diagnostics and unknown result fields are omitted.
 
+Optional `source: { repository, commit, tree }` and
+`artifacts: [{ id, digest, reference }]` retain non-secret package provenance in
+each sealed Master revision and its applied history. The controller validates
+and detaches these fields at construction, before target observation, using the
+same Master readers as Kubernetes and other revision producers. Repository URLs
+and artifact references must be credential-free; private checkout/package paths
+stay in the host adapter. Changing this provenance requires a new review even
+when the resource graph is unchanged. These fields explain the selected source
+and package; an application check still has to measure that the expected package
+is actually running.
+
 The default `transaction: 'group'` declares one `SystemdServiceGroup` resource.
 Its `units` member list is a group, not a fabricated serial deployment order.
 `host.applyUnits({ units, desiredSpecDigest, releaseDigest }, context)` must

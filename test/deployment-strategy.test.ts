@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { DeploymentStrategyRegistry, createKubernetesDeploymentAdapter, createSystemdDeploymentAdapter } from '../src/deployment-strategy/index.ts';
 import type { SystemdHostObservation } from '../src/deployment-strategy/types.ts';
 import { createDeploymentRecorder } from '../src/progress/recorder.ts';
+import type {MasterState} from '../src/master/types.ts';
 
 async function fixture(t: test.TestContext) {
  const directory = await mkdtemp(join(tmpdir(),'deployment-strategy-')); t.after(()=>rm(directory,{recursive:true,force:true}));
@@ -121,4 +122,27 @@ test('systemd live progress comes from its native engine recorder and chart', as
  const count = seen.length;
  await adapter.snapshot();
  assert.equal(seen.length, count);
+});
+
+test('systemd source provenance is captured before observation and retained in the real applied revision history',async t=>{
+ const f=await fixture(t),source={repository:'https://github.com/company/neo.git',commit:'1'.repeat(40),tree:'2'.repeat(40)},artifacts=[{id:'neo-package',digest:'3'.repeat(64),reference:'packages:sha256:'+'3'.repeat(64)}];
+ const expectedSource=structuredClone(source),expectedArtifacts=structuredClone(artifacts),adapter=createSystemdDeploymentAdapter({...f.options,source,artifacts});
+ source.commit='9'.repeat(40);artifacts[0]!.digest='9'.repeat(64);assert.equal(f.count(),0);assert.equal(f.checks(),0);
+ const review=await adapter.plan({revisionId:'source-reviewed'});assert.equal(review.ok,true);const planned=await adapter.snapshot() as {master:MasterState};
+ const candidate=planned.master.revisions.find(r=>r.digest===planned.master.candidateDigest)!;assert.deepEqual(candidate.source,expectedSource);assert.deepEqual(candidate.artifacts,expectedArtifacts);
+ assert.equal((await adapter.apply(review.reviewId!)).promoted,true);const applied=await adapter.snapshot() as {master:MasterState},revision=applied.master.revisions.find(r=>r.digest===applied.master.appliedDigest)!;
+ assert.deepEqual(revision.source,expectedSource);assert.deepEqual(revision.artifacts,expectedArtifacts);
+});
+
+test('systemd rejects unsafe source provenance during construction before any target check or effect',async t=>{
+ const f=await fixture(t);assert.throws(()=>createSystemdDeploymentAdapter({...f.options,source:{repository:'https://user:private@github.com/company/neo.git'}}),/repository/i);
+ assert.throws(()=>createSystemdDeploymentAdapter({...f.options,artifacts:[{id:'package',digest:'not-a-content-digest'}]}),/digest/i);assert.equal(f.count(),0);assert.equal(f.checks(),0);
+});
+
+test('changed systemd source provenance cannot apply an old review even when the resource graph is unchanged',async t=>{
+ const f=await fixture(t),source={repository:'https://github.com/company/neo.git',commit:'1'.repeat(40),tree:'2'.repeat(40)},original=createSystemdDeploymentAdapter({...f.options,source});
+ const review=await original.plan({revisionId:'source-one'});assert.equal(review.ok,true);
+ const changed=createSystemdDeploymentAdapter({...f.options,source:{...source,commit:'4'.repeat(40)}});await assert.rejects(()=>changed.apply(review.reviewId!),/source|review/);assert.equal(f.count(),0);
+ const next=await changed.plan({revisionId:'source-two'});assert.equal(next.ok,true);assert.equal((await changed.apply(next.reviewId!)).promoted,true);
+ const retained=await changed.snapshot() as {master:MasterState};assert.equal(retained.master.revisions.find(r=>r.digest===retained.master.appliedDigest)?.source?.commit,'4'.repeat(40));
 });
