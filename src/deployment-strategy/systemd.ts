@@ -26,7 +26,8 @@ export function createSystemdDeploymentAdapter(options:SystemdDeploymentOptions)
   if(typeof registration.scope!=='string'||!registration.scope||registration.scope.length>4096||/[\x00-\x1f\x7f]/.test(registration.scope))throw Error('systemd-target-scope-required');
   const preflight=captureCheckBinding(options.preflightChecks),application=captureCheckBinding(options.applicationChecks);
   const adapter=new SystemdResourceAdapter(registration,units,options.host,mode), target={id:registration.hostId,scope:adapter.scope};
-  const engine=new InfraEngine({adapters:[adapter],store:new FileStateStore(join(directory,'resources')),traceDirectory:join(directory,'traces'),maxConcurrency:1});
+  const engine=new InfraEngine({adapters:[adapter],store:new FileStateStore(join(directory,'resources')),traceDirectory:join(directory,'traces'),maxConcurrency:1,
+    ...(options.recorders ? {recorders:options.recorders} : {}), ...(options.chartObservers ? {chartObservers:options.chartObservers} : {})});
   const master=new MasterWorkflow({engine,store:new FileMasterStore(join(directory,'master')),target});
   const bindingDigest=fingerprint({id,stack:options.stack,registration,units:units.map(({configurationDigest,...unit})=>unit),transaction:mode}),store=new SystemdDeploymentStore(directory,id,bindingDigest);
   const contract=()=>fingerprint({preflight:checkContract(preflight),application:checkContract(application)});

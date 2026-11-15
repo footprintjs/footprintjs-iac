@@ -1,8 +1,17 @@
 # Validation results
 
-Current local library: **footprintjs-iac 0.4.0**, using pinned **FootPrint 12.1.0** and **Foottrace 1.15.0**. Capability, binding, retention, graph, concurrency, recovery, recorder-backed synthesis and live progress checks passed. Historical Neo integration and clean-clone results are retained below with their original scope.
+Current local library: **footprintjs-iac 0.5.0-alpha.2**, using pinned **FootPrint 12.1.0** and **Foottrace 1.15.0**. Capability, binding, retention, graph, concurrency, recovery, recorder-backed synthesis and live progress checks passed. Historical Neo integration and clean-clone results are retained below with their original scope.
 
 These are recorded results from the development laptop, not a claim that a fresh clone has already run them. Generated `.artifacts/` evidence, kubeconfig, state and logs are private local outputs and are intentionally excluded from Git. Reproduce the checks directly on your laptop with the [sharing guide](docs/SHARING.md). Automatic GitHub CI triggers are disabled for now; the saved workflow is manual-only. The real Neo integration runs directly through the local IaC command and requires a separately authorized private Neo checkout and local Docker/kind.
+
+## Systemd application-host progress — 2026-11-15
+
+Typecheck, **589 tests (0 failed, 0 skipped)** and build pass. The systemd
+deployment strategy now forwards optional native recorder and chart observers.
+The new regression proves that inspection/review and snapshot emit no resource
+progress, while reviewed apply emits native deploying and ready outcomes and
+the matching execution chart. This adds observation ports; existing target,
+sealed-review and application-verification requirements remain in force.
 
 ## Platform discovery and bootstrap — 2026-11-14
 

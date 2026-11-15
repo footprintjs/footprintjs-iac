@@ -157,3 +157,24 @@ updates, no-op, fresh failure/drift fences, one-use review, uncertain effects,
 configuration-only revisions, check-contract races and foreign/tampered native
 receipts. Controlled ports prove those contracts; a real systemd/Kubernetes
 acceptance run separately establishes the selected site's actual behavior.
+
+
+## Native progress in a viewer
+
+The systemd controller accepts the same optional native observer ports as
+`InfraEngine`. Register one deployment recorder in both `recorders` and
+`chartObservers` to receive actual resource progress and the executed chart:
+
+```ts
+const recorder = createDeploymentRecorder();
+const controller = createSystemdDeploymentAdapter({
+  ...registeredSystemdOptions,
+  recorders: [recorder],
+  chartObservers: [recorder],
+});
+```
+
+These observation ports do not grant deployment authority or change the sealed
+review. Planning emits no resource deployment progress. Resource readiness
+follows the provider's native apply/verification result; application promotion
+still requires the separately registered checks.

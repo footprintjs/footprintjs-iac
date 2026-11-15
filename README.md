@@ -2,7 +2,7 @@
 
 **Define infrastructure as a graph. Deploy, observe and explain every change.**
 
-A TypeScript infrastructure framework built on **FootPrint 12.1.0** and **Foottrace 1.15.0**. Alpha version **0.5.0-alpha.1** describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk. Native recorders also drive live deployment progress and checked output generation.
+A TypeScript infrastructure framework built on **FootPrint 12.1.0** and **Foottrace 1.15.0**. Alpha version **0.5.0-alpha.2** describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk. Native recorders also drive live deployment progress and checked output generation.
 
 `footprintjs-iac` is the package name; **InfraChart** is its display name. This is an early alpha: public APIs may change between prereleases. Existing state directories, Kubernetes ownership annotations and field-manager names, local fixture image references and systemd markers retain their original `footprint-iac` identifiers so the naming change preserves recorded resource ownership.
 
@@ -22,10 +22,11 @@ application containers into the registered cluster.
 
 ## Install the alpha
 
-Requires Node.js 24 or newer. Pin the preview version when adopting it in an application:
+Requires Node.js 24 or newer. Pin the preview version
+when adopting it in an application:
 
 ```sh
-npm install --save-exact footprintjs-iac@0.5.0-alpha.1
+npm install --save-exact footprintjs-iac@0.5.0-alpha.2
 ```
 
 The `alpha` distribution tag tracks the current preview (`npm install footprintjs-iac@alpha`).

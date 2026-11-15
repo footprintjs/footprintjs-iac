@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DeploymentStrategyRegistry, createKubernetesDeploymentAdapter, createSystemdDeploymentAdapter } from '../src/deployment-strategy/index.ts';
 import type { SystemdHostObservation } from '../src/deployment-strategy/types.ts';
+import { createDeploymentRecorder } from '../src/progress/recorder.ts';
 
 async function fixture(t: test.TestContext) {
  const directory = await mkdtemp(join(tmpdir(),'deployment-strategy-')); t.after(()=>rm(directory,{recursive:true,force:true}));
@@ -99,4 +100,25 @@ test('snapshot rejects another target application or engine receipt with the sam
  const path=join(left.options.stateDirectory,'systemd-deployment.json'),saved=JSON.parse(await readFile(path,'utf8'));
  const foreign=JSON.parse(await readFile(join(right.options.stateDirectory,'systemd-deployment.json'),'utf8'));
  for(const field of ['applicationChecks','deployment']){const changed=structuredClone(saved);changed.attempts[0].result[field]=foreign.attempts[0].result[field];await writeFile(path,JSON.stringify(changed));await assert.rejects(()=>one.snapshot(),/native|admitted/);}
+});
+
+
+test('systemd live progress comes from its native engine recorder and chart', async t => {
+ const f = await fixture(t), recorder = createDeploymentRecorder({id:'systemd-native-progress'});
+ const seen: string[] = [];
+ recorder.subscribe(event => seen.push(event.status));
+ const adapter = createSystemdDeploymentAdapter({...f.options, recorders:[recorder], chartObservers:[recorder]});
+ const review = await adapter.plan({revisionId:'native-progress'});
+ assert.equal(seen.length, 0);
+ const result = await adapter.apply(review.reviewId!);
+ assert.equal(result.promoted, true);
+ assert.ok(seen.includes('deploying'));
+ assert.equal(seen.at(-1), 'ready');
+ const snapshot = recorder.getSnapshot();
+ assert.ok(snapshot.chart?.resources.some(resource => resource.resourceId === 'neo-service'));
+ assert.equal(snapshot.resources['neo-service']?.status, 'ready');
+ assert.equal(snapshot.ignoredEvents, 0);
+ const count = seen.length;
+ await adapter.snapshot();
+ assert.equal(seen.length, count);
 });

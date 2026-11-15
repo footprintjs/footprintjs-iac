@@ -1,4 +1,6 @@
 import type { CheckRunner } from '../checks/types.ts';
+import type { CombinedRecorder } from 'footprintjs';
+import type { DeploymentChartObserver } from '../progress/chart.ts';
 
 /** A host-registered deployment controller. A request selects its ID, never code or credentials. */
 export interface DeploymentStrategyAdapter {
@@ -39,5 +41,8 @@ export interface SystemdDeploymentOptions {
   host: SystemdDeploymentHost;
   preflightChecks: DeploymentCheckBinding;
   applicationChecks: DeploymentCheckBinding;
+  /** Native engine progress observers; these do not grant deployment authority. */
+  recorders?: CombinedRecorder[];
+  chartObservers?: DeploymentChartObserver[];
 }
 export type DeploymentStrategyDescription = { id: string; kind: string };
