@@ -4,6 +4,14 @@
   "type": "module",
   "description": "InfraChart: compute, storage and network design with recorded infrastructure reconciliation",
   "exports": {
+    "./agent-platform": {
+      "types": "./dist/src/agent-platform/index.d.ts",
+      "import": "./dist/src/agent-platform/index.js"
+    },
+    "./agent-platform/node": {
+      "types": "./dist/src/agent-platform/node.d.ts",
+      "import": "./dist/src/agent-platform/node.js"
+    },
     "./platform": {
       "types": "./dist/src/platform/index.d.ts",
       "import": "./dist/src/platform/index.js"
