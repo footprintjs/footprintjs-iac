@@ -48,6 +48,14 @@
       "types": "./dist/src/delivery-git/index.d.ts",
       "import": "./dist/src/delivery-git/index.js"
     },
+    "./source-preparation": {
+      "types": "./dist/src/source-preparation/index.d.ts",
+      "import": "./dist/src/source-preparation/index.js"
+    },
+    "./source-preparation/node": {
+      "types": "./dist/src/source-preparation/node.d.ts",
+      "import": "./dist/src/source-preparation/node.js"
+    },
     "./integration/identity/github-delivery": {
       "types": "./dist/integration/identity/github-delivery/index.d.ts",
       "import": "./dist/integration/identity/github-delivery/index.js"
@@ -235,6 +243,14 @@
     "./deployment-strategy": {
       "types": "./dist/src/deployment-strategy/index.d.ts",
       "import": "./dist/src/deployment-strategy/index.js"
+    },
+    "./agent-platform/components": {
+      "types": "./dist/src/agent-platform/components/index.d.ts",
+      "import": "./dist/src/agent-platform/components/index.js"
+    },
+    "./agent-platform/components/node": {
+      "types": "./dist/src/agent-platform/components/node.d.ts",
+      "import": "./dist/src/agent-platform/components/node.js"
     }
   },
   "files": [

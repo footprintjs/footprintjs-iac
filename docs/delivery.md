@@ -5,6 +5,11 @@ release with the existing infrastructure engine. GitHub is a source adapter;
 Kubernetes and other resource providers remain deployment adapters. No GitHub,
 Docker or application-specific switch exists in the generic workflow.
 
+When the deployment host needs a separate human-reviewed plan/apply step, use
+[`SourcePreparationWorkflow`](source-preparation.md) for the four actual source
+and package stages first. It hands exact native receipts to the normal review
+host without running or inventing deployment stages.
+
 The actual native FootPrint chart is:
 
 ```
