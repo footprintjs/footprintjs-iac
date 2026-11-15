@@ -22,7 +22,7 @@ import {
   DeploymentStrategyRegistry,
   createKubernetesDeploymentAdapter,
   createSystemdDeploymentAdapter,
-} from 'footprint-iac/deployment-strategy';
+} from 'footprintjs-iac/deployment-strategy';
 
 const registry = new DeploymentStrategyRegistry({ adapters: [
   createKubernetesDeploymentAdapter({ id: 'kubernetes', controller: guardedWorkloadController }),

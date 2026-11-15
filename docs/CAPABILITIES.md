@@ -13,7 +13,7 @@ The layers have separate responsibilities:
 ## Consumer shape
 
 ```ts
-import { system, artifact, ref } from 'footprint-iac/system';
+import { system, artifact, ref } from 'footprintjs-iac/system';
 
 const design = system('neo')
   .addNetwork('network', network =>
@@ -66,7 +66,7 @@ Compute supports services, jobs and interval-scheduled tasks. Network supports s
 
 Generic identity sources and application permissions have a separate [identity API](IDENTITY.md). `defineIdentitySource` defaults to external ownership; declaration does not provision a directory. `defineAccessPolicy` declares exact rules, `evaluateAccess` evaluates them without I/O, and `authorizeAccess` records the same evaluation with native data/control provenance. A host must authenticate the subject and enforce the returned decision. These APIs do not make a capability's `runAs`, a role boundary or a security boundary enforce itself.
 
-Policy rules match `source AND (subject OR group) AND action AND resource`. Subject and group lists are alternatives, all values match exactly, unmatched requests are denied, and explicit deny overrides allow. LDAP authentication and LDAP-to-Keycloak federation are separate adapters under `footprint-iac/identity/ldap`; the base model carries no LDAP/Keycloak switch. The local Neo integration currently enforces app-wide `neo:chat` access, not tool-specific permissions or Kubernetes RBAC.
+Policy rules match `source AND (subject OR group) AND action AND resource`. Subject and group lists are alternatives, all values match exactly, unmatched requests are denied, and explicit deny overrides allow. LDAP authentication and LDAP-to-Keycloak federation are separate adapters under `footprintjs-iac/identity/ldap`; the base model carries no LDAP/Keycloak switch. The local Neo integration currently enforces app-wide `neo:chat` access, not tool-specific permissions or Kubernetes RBAC.
 
 ## Identity, composition and dependencies
 
@@ -79,8 +79,8 @@ Region, security, role, physical and ownership boundaries remain overlapping vie
 ## Binding and explanation
 
 ```ts
-import { bindSystem, simulationProfile } from 'footprint-iac/binding';
-import { InfraEngine, FileStateStore, SimulatorAdapter } from 'footprint-iac';
+import { bindSystem, simulationProfile } from 'footprintjs-iac/binding';
+import { InfraEngine, FileStateStore, SimulatorAdapter } from 'footprintjs-iac';
 
 const engine = new InfraEngine({
   adapters: [new SimulatorAdapter()],

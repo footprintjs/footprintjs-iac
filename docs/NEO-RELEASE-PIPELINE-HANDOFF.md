@@ -2,8 +2,8 @@
 
 **Distribution status:** this document describes the current review candidate. The latest core and Lens changes are still in working copies; they have **not yet been pushed or published**. The repository URLs below identify the projects, not a claim that a fresh clone already contains this feature. Obtain the owner's reviewed working-copy bundle or the exact core/Lens commit hashes after they are pushed. Record the bundle SHA-256 and both checkout revisions. Do not publish, push, merge, dispatch GitHub Actions or enable CI as part of this reproduction.
 
-- Base library: [footprintjs/footprint-iac](https://github.com/footprintjs/footprint-iac).
-- Dashboard: [footprintjs/footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens).
+- Base library: [footprintjs/footprintjs-iac](https://github.com/footprintjs/footprintjs-iac).
+- Dashboard: [footprintjs/footprintjs-iac-lens](https://github.com/footprintjs/footprintjs-iac-lens).
 - Real consumer: [sanjay1909/neo-agentfootprint](https://github.com/sanjay1909/neo-agentfootprint).
 
 Use your own repository permissions and Git credential helper. Tokens do not belong in clone URLs, manifests, browser inputs or forwarded files. Keep the core and Lens as sibling directories because Lens depends on `file:../footprint-iac`. Keep private host JSON, target descriptors, credentials, caches and evidence on this laptop; another laptop's localhost URL or `.artifacts/` directory is not a deployable package.
@@ -97,13 +97,13 @@ import {execFileSync} from 'node:child_process';
 import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {readDeliveryState} from 'footprint-iac/delivery';
-import {loadDeliveryRecording} from 'footprint-iac/delivery/workflow';
-import {GitSourceAdapter} from 'footprint-iac/delivery/git';
-import {defineReleaseManifest} from 'footprint-iac/releases/node';
-import {loadIdentityTarget, identityRoot} from 'footprint-iac/integration/identity';
-import {neoDeliveryArtifacts, neoDeliveryRecipe} from 'footprint-iac/integration/identity/github-delivery';
-import {createNeoReleasePreparation} from 'footprint-iac/integration/identity/release-pipeline';
+import {readDeliveryState} from 'footprintjs-iac/delivery';
+import {loadDeliveryRecording} from 'footprintjs-iac/delivery/workflow';
+import {GitSourceAdapter} from 'footprintjs-iac/delivery/git';
+import {defineReleaseManifest} from 'footprintjs-iac/releases/node';
+import {loadIdentityTarget, identityRoot} from 'footprintjs-iac/integration/identity';
+import {neoDeliveryArtifacts, neoDeliveryRecipe} from 'footprintjs-iac/integration/identity/github-delivery';
+import {createNeoReleasePreparation} from 'footprintjs-iac/integration/identity/release-pipeline';
 import {stageNeoCandidate} from '../integration/identity/stage-neo-candidate.ts';
 
 const [targetArgument, checkoutArgument, hostArgument, priorDeliveryArgument] = process.argv.slice(2);
@@ -252,7 +252,7 @@ Record all ten real point-in-time checks from the core checkout with a small one
 node --input-type=module - "$IAC_TARGET" <<'JS'
 import {randomUUID} from 'node:crypto';
 import {join} from 'node:path';
-import {loadIdentityTarget} from 'footprint-iac/integration/identity';
+import {loadIdentityTarget} from 'footprintjs-iac/integration/identity';
 import {verifyNeoResourceFlow} from './integration/identity/resource-flow-verify.ts';
 const target=await loadIdentityTarget(process.argv[2]);
 const directory=join(target.directory,'release-check-experiments',randomUUID());

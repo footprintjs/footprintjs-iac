@@ -49,7 +49,7 @@ Unknown paths or drift remain unknown. A declared contract is labelled
 import {
   ChangeAssessmentWorkflow, FileChangeAssessmentStore,
   conservativeChangeStrategy, DeclaredContractAssessmentAdapter,
-} from 'footprint-iac/change-assessment/node';
+} from 'footprintjs-iac/change-assessment/node';
 
 const adapter = new DeclaredContractAssessmentAdapter({
   id: 'company-store', provider: 'company-store', scope: hostScope,

@@ -20,13 +20,13 @@ required, enabled or dispatched by this workflow.
 
 ## Public modules
 
-`footprint-iac/delivery` is browser-safe: definitions, state, adapter contracts
-and bounded admission readers. `footprint-iac/delivery/workflow` is host-only:
+`footprintjs-iac/delivery` is browser-safe: definitions, state, adapter contracts
+and bounded admission readers. `footprintjs-iac/delivery/workflow` is host-only:
 `DeliveryWorkflow`, `FileDeliveryStore` and `loadDeliveryRecording`.
 
 ```ts
-import { DeliveryWorkflow, FileDeliveryStore } from 'footprint-iac/delivery/workflow';
-import type { DeliveryAdapters } from 'footprint-iac/delivery';
+import { DeliveryWorkflow, FileDeliveryStore } from 'footprintjs-iac/delivery/workflow';
+import type { DeliveryAdapters } from 'footprintjs-iac/delivery';
 
 // Trusted host composition supplies the implementation and fixed settings.
 declare const adapters: DeliveryAdapters;

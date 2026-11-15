@@ -1,12 +1,12 @@
-# Native deployment progress and IaC Lens
+# Native deployment progress and InfraChart Lens
 
 The 0.4.0 foundation uses the existing FootPrint 11.1.0 recorder interfaces for live deployment observations. It does not introduce a second execution engine or infer deployment from animation. Foottrace 1.12.0 reads the captured evidence for replay and investigation.
 
 ## Attach a native recorder
 
 ```ts
-import { InfraEngine, FileStateStore, SimulatorAdapter } from 'footprint-iac';
-import { createDeploymentRecorder } from 'footprint-iac/progress';
+import { InfraEngine, FileStateStore, SimulatorAdapter } from 'footprintjs-iac';
+import { createDeploymentRecorder } from 'footprintjs-iac/progress';
 
 const progress = createDeploymentRecorder();
 const unsubscribe = progress.subscribe(event => {
@@ -57,20 +57,20 @@ Planning and `bindSystem()` selection remain outside the recorded apply chart. P
 
 ## Separate, optional UI
 
-The [footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens) repository owns the separate dashboard and consumer server. The IaC foundation has no React dependency.
+The [footprintjs-iac-lens](https://github.com/footprintjs/footprintjs-iac-lens) repository owns the separate dashboard and consumer server. The IaC foundation has no React dependency.
 
 | Import | Responsibility |
 | --- | --- |
-| `footprint-iac-lens` or `/core` | Framework-neutral TypeScript client, transport contracts, system model and layout. |
-| `footprint-iac-lens/react` | Optional React dashboard surface. |
-| `footprint-iac-lens/server` | Explicit local consumer server and deployment-controller composition. |
+| `footprintjs-iac-lens` or `/core` | Framework-neutral TypeScript client, transport contracts, system model and layout. |
+| `footprintjs-iac-lens/react` | Optional React dashboard surface. |
+| `footprintjs-iac-lens/server` | Explicit local consumer server and deployment-controller composition. |
 
 The dashboard starts all declared resources grey, then projects native progress into its live system chart. Selecting a resource shows its full identity, desired data and observed outcome. The execution-evidence view uses the existing `footprint-explainable-ui` Flow Lens with the native snapshot and saved structure. The resource system view describes infrastructure; the Flow Lens view describes traversal. The distinction matters when a resource expands into several execution stages or one capability expands into multiple resources.
 
 Framework-neutral consumers can supply their own request and event-stream transport:
 
 ```ts
-import { createDashboardClient } from 'footprint-iac-lens/core';
+import { createDashboardClient } from 'footprintjs-iac-lens/core';
 
 const client = createDashboardClient({
   baseUrl: 'http://127.0.0.1:15231',

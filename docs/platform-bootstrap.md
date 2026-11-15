@@ -1,6 +1,6 @@
 # Discover hosts, prepare a platform, then deploy workloads
 
-The host-only `footprint-iac/platform` API composes access, measured discovery,
+The host-only `footprintjs-iac/platform` API composes access, measured discovery,
 installation policy, lifecycle adapters and native recorded execution. Neo and
 other application consumers choose those adapters in their composition root;
 the base workflow contains no application-specific branches.
@@ -29,11 +29,11 @@ in the shared chart scope or plan JSON.
 
 | Module | Responsibility |
 | --- | --- |
-| `footprint-iac/platform/access` | Local and SSH transports, fixed discovery and multi-host dispatch |
-| `footprint-iac/platform/bootstrap` | Topology intent, strategies, kubeadm/existing adapters and pinned preparation recipes |
-| `footprint-iac/platform/workflow` | Native execution, retained state, pause/resume and evidence admission |
-| `footprint-iac/platform/kubernetes` | Pinned read-only inspection/readiness for an existing cluster |
-| `footprint-iac/platform` | Host composition exports for these modules |
+| `footprintjs-iac/platform/access` | Local and SSH transports, fixed discovery and multi-host dispatch |
+| `footprintjs-iac/platform/bootstrap` | Topology intent, strategies, kubeadm/existing adapters and pinned preparation recipes |
+| `footprintjs-iac/platform/workflow` | Native execution, retained state, pause/resume and evidence admission |
+| `footprintjs-iac/platform/kubernetes` | Pinned read-only inspection/readiness for an existing cluster |
+| `footprintjs-iac/platform` | Host composition exports for these modules |
 
 Discovery measures OS/distribution/version, architecture, CPU, total/available
 memory, disk space, privilege, tool versions and known Kubernetes configuration.
@@ -51,7 +51,7 @@ uses its registered connection instead.
 ```ts
 import {
   createSshHostAccessTransport, FixedHostDiscovery, HOST_INVENTORY_ACTION,
-} from 'footprint-iac/platform/access';
+} from 'footprintjs-iac/platform/access';
 
 const host = { id: 'server-1', scope: 'office-management', profileId: managementProfile.id };
 const transport = await createSshHostAccessTransport({
@@ -105,7 +105,7 @@ plan. Register reviewed artifacts already delivered to the host, not arbitrary
 shell text supplied by a dashboard request:
 
 ```ts
-import { PinnedRecipeHostPreparation } from 'footprint-iac/platform/bootstrap';
+import { PinnedRecipeHostPreparation } from 'footprintjs-iac/platform/bootstrap';
 
 const preparation = new PinnedRecipeHostPreparation({
   id: 'office-host-preparation',

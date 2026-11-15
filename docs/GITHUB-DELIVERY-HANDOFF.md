@@ -4,8 +4,8 @@ This feature adds reusable source, build, artifact storage and deployment ports 
 
 ## Repositories and prerequisites
 
-- Base: https://github.com/footprintjs/footprint-iac
-- Viewer: https://github.com/footprintjs/footprint-iac-lens
+- Base: https://github.com/footprintjs/footprintjs-iac
+- Viewer: https://github.com/footprintjs/footprintjs-iac-lens
 - Example application: https://github.com/sanjay1909/neo-agentfootprint
 
 Use sibling base/viewer checkouts containing this feature. They and the Neo source require the recipient's own repository access. Requirements are Node.js 24+, Git, npm, Docker, kind and kubectl. The host Git credential helper must already be able to read the private Neo repository; tokens do not belong in repository URLs or the browser.
@@ -34,6 +34,6 @@ Observe **Get code → Build → Store package → Review changes → Deploy →
 - Inspect the delivery, deployment, connection and identity recordings. They have explicit identities and references; independent runs are not joined by invented causal edges.
 - A store represents one immutable delivery attempt. A completed attempt is read-only/idempotent. A failed, interrupted or uncertain attempt needs inspection and provider reconciliation before an explicitly new attempt. Arbitrary stage resume and automatic retry are not claimed.
 
-The public entry points are `footprint-iac/delivery`, `footprint-iac/delivery/workflow` and `footprint-iac/delivery/git`. See [delivery contracts](delivery.md) and [Git source behavior](delivery-git.md). Generic build, artifact and deployment ports can be implemented for other applications and environments; this tested Neo binding uses local Docker/kind, not a hosted registry or cloud deployment service.
+The public entry points are `footprintjs-iac/delivery`, `footprintjs-iac/delivery/workflow` and `footprintjs-iac/delivery/git`. See [delivery contracts](delivery.md) and [Git source behavior](delivery-git.md). Generic build, artifact and deployment ports can be implemented for other applications and environments; this tested Neo binding uses local Docker/kind, not a hosted registry or cloud deployment service.
 
 Keep CI off. Review the implementation and recorded evidence before merging. No merge is part of running this example.

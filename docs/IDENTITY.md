@@ -7,8 +7,8 @@ The current API separates pure declarations/evaluation, authentication adapters,
 ## Generic declarations and exact policy evaluation
 
 ```ts
-import { defineIdentitySource } from 'footprint-iac/identity';
-import { defineAccessPolicy, evaluateAccess } from 'footprint-iac/identity/policy';
+import { defineIdentitySource } from 'footprintjs-iac/identity';
+import { defineAccessPolicy, evaluateAccess } from 'footprintjs-iac/identity/policy';
 
 const directory = defineIdentitySource({ id: 'company-directory', kind: 'directory' });
 const policy = defineAccessPolicy({ id: 'neo-access', rules: [{
@@ -38,7 +38,7 @@ Subject and group lists are alternatives. A matching explicit deny wins over any
 ## Recorded authorization
 
 ```ts
-import { authorizeAccess } from 'footprint-iac/identity';
+import { authorizeAccess } from 'footprintjs-iac/identity';
 
 const run = await authorizeAccess({
   policy, subject: verifiedSubject, action: 'neo:chat', resource: 'neo',
@@ -55,7 +55,7 @@ if (run.decision.effect !== 'allowed') {
 Each run returns a snapshot, chart structure, control dependencies, decisions, narrative and optional JSONL trace. Persist completed evidence in a private directory and publish a reference after the write completes. Local evidence/trace paths are local file locations, not URLs that another laptop can open. Share reviewed source and setup instructions rather than private artifact directories.
 
 ```ts
-import { loadEvidence, replay, backwalk } from 'footprint-iac';
+import { loadEvidence, replay, backwalk } from 'footprintjs-iac';
 
 const evidence = await loadEvidence(savedPrivateEvidencePath);
 const reconstructed = replay(evidence);
@@ -66,7 +66,7 @@ The authorization `outcome` backwalk reaches its decision and recorded policy/su
 
 ## LDAP adapters
 
-`footprint-iac/identity/ldap` exports two separate adapters:
+`footprintjs-iac/identity/ldap` exports two separate adapters:
 
 | Adapter | Responsibility |
 | --- | --- |
@@ -86,7 +86,7 @@ Keep provider selection in adapters. The application-facing policy uses a generi
 ## Recorded login and access checks
 
 ```ts
-import { checkIdentityAccess, createIdentityRecorder } from 'footprint-iac/identity';
+import { checkIdentityAccess, createIdentityRecorder } from 'footprintjs-iac/identity';
 
 const recorder = createIdentityRecorder();
 const unsubscribe = recorder.subscribe(event => showProgress(event));

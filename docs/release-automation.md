@@ -1,6 +1,6 @@
 # Published versions to an environment pipeline
 
-`footprint-iac/release-automation/node` composes the existing read-only release
+`footprintjs-iac/release-automation/node` composes the existing read-only release
 catalog, exact-source build workflow and environment pipeline. The core has no
 GitHub or Neo switch. `GitHubReleaseCatalog` is one catalog adapter; a host can
 register another source without changing orchestration. A release discovered in

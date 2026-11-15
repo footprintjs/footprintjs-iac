@@ -1,6 +1,6 @@
 # Container workloads on an existing Kubernetes cluster
 
-`footprint-iac/kubernetes-workload` is an opt-in production preparation layer over the existing Kubernetes provider. It has no dependency on kind, Docker Desktop, a particular registry or Neo. Compilation performs no provider calls.
+`footprintjs-iac/kubernetes-workload` is an opt-in production preparation layer over the existing Kubernetes provider. It has no dependency on kind, Docker Desktop, a particular registry or Neo. Compilation performs no provider calls.
 
 The first profile manages **Deployment and ClusterIP Service** objects only. The namespace, registry credentials, application Secrets, public ConfigMaps, persistent volume claims, database, identity provider and ingress already exist. Referencing those objects neither adopts them nor authorizes their modification. A bound PVC can be mounted; this profile does not provision or migrate storage.
 
@@ -9,8 +9,8 @@ import {
   compileKubernetesWorkload, GuardedKubernetesAdapter,
   KubernetesExternalReferenceProbe, KubernetesTargetGuard,
   KubectlKubernetesWorkloadTransport,
-} from 'footprint-iac/kubernetes-workload';
-import { KubernetesAdapter } from 'footprint-iac';
+} from 'footprintjs-iac/kubernetes-workload';
+import { KubernetesAdapter } from 'footprintjs-iac';
 
 const { graph, references } = compileKubernetesWorkload({
   stack: 'my-app-production', namespace: 'my-app', name: 'my-app',

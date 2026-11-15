@@ -1,9 +1,9 @@
 # Git and GitHub source adapters
 
-The base delivery workflow accepts a `SourceAdapter`; repository hosting is independent of build recipes, artifact storage and deployment targets. The Node adapter is exported from `footprint-iac/delivery/git`.
+The base delivery workflow accepts a `SourceAdapter`; repository hosting is independent of build recipes, artifact storage and deployment targets. The Node adapter is exported from `footprintjs-iac/delivery/git`.
 
 ```ts
-import { createGitHubSourceAdapter } from 'footprint-iac/delivery/git';
+import { createGitHubSourceAdapter } from 'footprintjs-iac/delivery/git';
 
 const source = createGitHubSourceAdapter({
   directory: '/private/delivery/source-cache',

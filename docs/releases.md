@@ -7,7 +7,7 @@ catalog adapter. The pipeline consumes a sealed manifest; it does not rebuild
 it separately for each environment.
 
 ```ts
-import { ReleasePreparationWorkflow, FileReleasePreparationStore } from 'footprint-iac/releases/node';
+import { ReleasePreparationWorkflow, FileReleasePreparationStore } from 'footprintjs-iac/releases/node';
 
 const preparation = new ReleasePreparationWorkflow({
   definition: {
@@ -45,7 +45,7 @@ immutable or that a build was reproducible.
 ## GitHub discovery is not a built release
 
 ```ts
-import { GitHubReleaseCatalog } from 'footprint-iac/releases/github';
+import { GitHubReleaseCatalog } from 'footprintjs-iac/releases/github';
 const catalog = new GitHubReleaseCatalog({
   id: 'app-github', repository: 'company/app',
   token: async () => secretStore.read('github-read-token'),

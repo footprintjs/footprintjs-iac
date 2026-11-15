@@ -1,6 +1,6 @@
 # Real local SQLite replacement
 
-`footprint-iac/migration/sqlite` implements the generic stateful migration ports for an explicitly cooperating local consumer. It uses real SQLite databases and `node:sqlite` on Node.js 24+. It is independent of Neo, Kubernetes and cloud providers. The generic migration workflow contains no SQLite branches.
+`footprintjs-iac/migration/sqlite` implements the generic stateful migration ports for an explicitly cooperating local consumer. It uses real SQLite databases and `node:sqlite` on Node.js 24+. It is independent of Neo, Kubernetes and cloud providers. The generic migration workflow contains no SQLite branches.
 
 The adapter runs inspect → quiesce → backup → create candidate → transfer/schema migration → verify data → **manual cutover gate** → switch consumer → verify consumer → retain source/backup → resume writes. It never deletes the source, backup or candidate, and it exposes no automatic pointer rollback.
 
@@ -27,10 +27,10 @@ Capture is intentionally bounded: each admitted database/sidecar is at most 64 M
 The real local fixture creates its initial populated version only in a new empty owned directory. Reopening the same directory preserves the existing database, active pointer and fence; it never reseeds or resets the app.
 
 ```ts
-import { createSqliteConversationFixture } from 'footprint-iac/migration/sqlite';
+import { createSqliteConversationFixture } from 'footprintjs-iac/migration/sqlite';
 import {
   MigrationWorkflow, FileMigrationStore, FileMigrationLocks, offlineTransferStrategy,
-} from 'footprint-iac/migration/node';
+} from 'footprintjs-iac/migration/node';
 
 const app = await createSqliteConversationFixture({directory: privateApplicationRoot});
 const resources = await app.adapter.resources();

@@ -5,7 +5,7 @@ host access, and cluster operations. The reusable library has no Neo dependency.
 Run it through the recorded platform workflow; a provider method alone is not a
 durable deployment coordinator.
 
-The public contracts live in `footprint-iac/platform/bootstrap`:
+The public contracts live in `footprintjs-iac/platform/bootstrap`:
 
 - `HostPreparationPort` measures readiness for a reviewed OS/site recipe.
 - `ClusterBootstrapStrategy` chooses a supported operation from recorded facts.
@@ -18,7 +18,7 @@ The public contracts live in `footprint-iac/platform/bootstrap`:
   an unsupported result, not an inferred installation strategy.
 
 Management host references and access transports come from
-`footprint-iac/platform/access`. Host inventory measures OS, architecture, CPU,
+`footprintjs-iac/platform/access`. Host inventory measures OS, architecture, CPU,
 RAM, disk, privileges and available tooling. Inventory does not choose a desired
 topology or establish that every possible Kubernetes distribution is absent.
 For create, the site preparation port must establish node cleanliness and the

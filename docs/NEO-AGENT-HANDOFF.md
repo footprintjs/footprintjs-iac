@@ -5,8 +5,8 @@ and credentials. Another laptop's localhost URL or Docker cache is not a depende
 
 Repositories:
 
-- IaC: https://github.com/footprintjs/footprint-iac
-- Lens: https://github.com/footprintjs/footprint-iac-lens
+- IaC: https://github.com/footprintjs/footprintjs-iac
+- Lens: https://github.com/footprintjs/footprintjs-iac-lens
 - Consumer: https://github.com/sanjay1909/neo-agentfootprint
 - Detailed contract: [identity integration](../integration/identity/README.md)
 
@@ -34,8 +34,8 @@ Choose a new empty parent folder. Preserve existing checkouts and dirty work:
 ```sh
 mkdir neo-iac-review
 cd neo-iac-review
-git clone https://github.com/footprintjs/footprint-iac.git
-git clone https://github.com/footprintjs/footprint-iac-lens.git
+git clone https://github.com/footprintjs/footprintjs-iac.git footprint-iac
+git clone https://github.com/footprintjs/footprintjs-iac-lens.git footprint-iac-lens
 git clone --branch feat/neo-identity-ldap-20261110 https://github.com/sanjay1909/neo-agentfootprint.git neo-agentfootprint-identity
 git -C neo-agentfootprint-identity switch --detach 7f5e4546bfcc0f4586e641ab19375c43238165a8
 git -C neo-agentfootprint-identity worktree add --detach ../neo-agentfootprint-base-fixture 6f876df846ae683cc9e9a114a51b638e31615af2

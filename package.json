@@ -1,9 +1,9 @@
 {
-  "name": "footprint-iac",
+  "name": "footprintjs-iac",
   "version": "0.4.0",
   "private": true,
   "type": "module",
-  "description": "Compute, storage and network design with recorded infrastructure reconciliation",
+  "description": "InfraChart: compute, storage and network design with recorded infrastructure reconciliation",
   "exports": {
     "./platform": {
       "types": "./dist/src/platform/index.d.ts",
@@ -276,6 +276,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/footprintjs/footprint-iac.git"
+    "url": "git+https://github.com/footprintjs/footprintjs-iac.git"
   }
 }

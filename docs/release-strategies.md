@@ -16,17 +16,17 @@ Environment names and tools are host registrations. The core does not special-ca
 
 ## Public entry points
 
-- `footprint-iac/pipeline`: types, structural admission, built-in pure strategies, `compileRolloutPlans`.
-- `footprint-iac/pipeline/node`: workflow, private local stores, native evidence reader, existing-engine bridge.
-- `footprint-iac/releases/node`: exact manifest digest admission and build-once preparation.
-- `footprint-iac/checks/node`: registered HTTP, host-command and Playwright checks with finite recordings.
-- `footprint-iac/triggers/node`: manual, interval and validated stage-event dispatch.
+- `footprintjs-iac/pipeline`: types, structural admission, built-in pure strategies, `compileRolloutPlans`.
+- `footprintjs-iac/pipeline/node`: workflow, private local stores, native evidence reader, existing-engine bridge.
+- `footprintjs-iac/releases/node`: exact manifest digest admission and build-once preparation.
+- `footprintjs-iac/checks/node`: registered HTTP, host-command and Playwright checks with finite recordings.
+- `footprintjs-iac/triggers/node`: manual, interval and validated stage-event dispatch.
 
 ```ts
 import {
   PipelineWorkflow, FilePipelineStore, FilePipelineTargetStore,
   directStrategy, canaryStrategy, deploymentRolloutAdapter,
-} from 'footprint-iac/pipeline/node';
+} from 'footprintjs-iac/pipeline/node';
 
 const workflow = new PipelineWorkflow({
   release: sealedManifest,

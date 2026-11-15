@@ -14,8 +14,8 @@ push code or modify an existing developer checkout for this reproduction.
 
 Repositories, all requiring your own GitHub read access:
 
-- Core: https://github.com/footprintjs/footprint-iac
-- Lens: https://github.com/footprintjs/footprint-iac-lens
+- Core: https://github.com/footprintjs/footprintjs-iac
+- Lens: https://github.com/footprintjs/footprintjs-iac-lens
 - Consumer: https://github.com/sanjay1909/neo-agentfootprint
 
 Use the exact core and Lens commit hashes supplied in the accompanying handoff
@@ -35,8 +35,8 @@ Lens uses `file:../footprint-iac`:
 ```sh
 mkdir neo-resource-flow-review
 cd neo-resource-flow-review
-git clone https://github.com/footprintjs/footprint-iac.git
-git clone https://github.com/footprintjs/footprint-iac-lens.git
+git clone https://github.com/footprintjs/footprintjs-iac.git footprint-iac
+git clone https://github.com/footprintjs/footprintjs-iac-lens.git footprint-iac-lens
 git clone --branch demo/neo-master-upgrade-v2-20261111 https://github.com/sanjay1909/neo-agentfootprint.git neo-agentfootprint-v2
 git -C neo-agentfootprint-v2 switch --detach 839f6fd726607eb742e76374b94ab8733ef99be2
 git -C neo-agentfootprint-v2 worktree add --detach ../neo-agentfootprint-base-fixture 6f876df846ae683cc9e9a114a51b638e31615af2

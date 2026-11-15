@@ -1,6 +1,6 @@
 # Reproduce the Neo integration on another laptop
 
-The IaC library and its Neo consumer integration live in [footprintjs/footprint-iac](https://github.com/footprintjs/footprint-iac). The application remains in [sanjay1909/neo-agentfootprint](https://github.com/sanjay1909/neo-agentfootprint). Both repositories are private; the recipient needs GitHub read access to both. A repository URL does not grant that access. This handoff uses Git checkouts, not an npm registry release.
+The IaC library and its Neo consumer integration live in [footprintjs/footprintjs-iac](https://github.com/footprintjs/footprintjs-iac). The application remains in [sanjay1909/neo-agentfootprint](https://github.com/sanjay1909/neo-agentfootprint). Both repositories are private; the recipient needs GitHub read access to both. A repository URL does not grant that access. This handoff uses Git checkouts, not an npm registry release. Clone into the explicit `footprint-iac` and `footprint-iac-lens` directory names below: these existing local sibling paths remain the development link contract even though the repositories and packages use the new `footprintjs-iac` names.
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ kubectl version --client
 Run from a directory where you want the sibling checkouts. Authenticate Git against GitHub first if needed; `gh auth login` is one option when the GitHub CLI is installed.
 
 ```sh
-git clone https://github.com/footprintjs/footprint-iac.git
+git clone https://github.com/footprintjs/footprintjs-iac.git footprint-iac
 git clone https://github.com/sanjay1909/neo-agentfootprint.git
 git -C neo-agentfootprint worktree add --detach ../neo-agentfootprint-iac-fixture 6f876df846ae683cc9e9a114a51b638e31615af2
 cd footprint-iac
@@ -77,9 +77,9 @@ For a live recording of the application's first creation, prepare a new empty cl
 npm run neo:prepare-fresh -- ../neo-agentfootprint-iac-fixture
 ```
 
-This builds committed Neo source, then creates a uniquely named `footprint-iac-recording-<8 hex characters>` local kind cluster with private credentials and an empty state directory. It loads content-identified images but does **not** create the Neo namespace, Deployment or Service. The genuine `stage: "prepared"` descriptor is saved in `.artifacts/neo/fresh/latest.json`, separately from successful review reports. The separate IaC Lens dashboard can consume that descriptor and show the first apply from pending through provider-confirmed readiness.
+This builds committed Neo source, then creates a uniquely named `footprint-iac-recording-<8 hex characters>` local kind cluster with private credentials and an empty state directory. It loads content-identified images but does **not** create the Neo namespace, Deployment or Service. The genuine `stage: "prepared"` descriptor is saved in `.artifacts/neo/fresh/latest.json`, separately from successful review reports. The separate InfraChart Lens dashboard can consume that descriptor and show the first apply from pending through provider-confirmed readiness.
 
-Clone [footprintjs/footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens) beside this checkout, install/build it after building the core, and run `npm start -- --fresh-neo` from Lens. Click **Deploy Neo locally**. After resource readiness, Lens runs a recorded in-cluster DNS/HTTP connection check and shows **Checking**, then **Connected** or **Failed** on the communication edge. **Check connections** repeats the real check without changing resources. Select the connection to inspect its observations or native FootPrint recording. Checks observe the Service route from the recorded pod at that time; they do not continuously monitor traffic. Each run's evidence is retained under that target's Lens viewer directory.
+Clone [footprintjs/footprintjs-iac-lens](https://github.com/footprintjs/footprintjs-iac-lens) into `footprint-iac-lens` beside this checkout, install/build it after building the core, and run `npm start -- --fresh-neo` from Lens. Click **Deploy Neo locally**. After resource readiness, Lens runs a recorded in-cluster DNS/HTTP connection check and shows **Checking**, then **Connected** or **Failed** on the communication edge. **Check connections** repeats the real check without changing resources. Select the connection to inspect its observations or native FootPrint recording. Checks observe the Service route from the recorded pod at that time; they do not continuously monitor traffic. Each run's evidence is retained under that target's Lens viewer directory.
 
 Fresh Lens also opens a private loopback app URL after the Node and Python health endpoints pass. Use **Open Neo** to test its UI. This deployment port-forward is separate from the Service connectivity check; the app link can work even when a Service route fails. Lens prints its actual dashboard URL and writes `.artifacts/fresh/server.json` with the URL and per-target viewer directory. Keep that server running after first creation; another fresh recording requires preparing another target.
 

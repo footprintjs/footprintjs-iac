@@ -3,7 +3,7 @@
 The public synthesis layer turns a validated, complete desired resource graph into native files without provider observation or deployment. Binding still chooses concrete technology. A Kubernetes graph can produce Kubernetes manifests; an AWS CloudFormation binding produces CloudFormation templates. Changing JSON to YAML does not change the platform.
 
 ```ts
-import { synthesize, kubernetesOutput } from 'footprint-iac/synthesis';
+import { synthesize, kubernetesOutput } from 'footprintjs-iac/synthesis';
 
 const result = await synthesize(binding.graph, {
   outputs: [kubernetesOutput(), kubernetesOutput({ format: 'yaml' })],
@@ -25,9 +25,9 @@ Manifest files do not encode our direct engine's readiness sequencing, recovery 
 ## Narrow AWS CloudFormation profile
 
 ```ts
-import { system } from 'footprint-iac/system';
-import { bindSystem } from 'footprint-iac/binding';
-import { awsObjectStorageProfile, cloudFormationOutput, synthesize } from 'footprint-iac/synthesis';
+import { system } from 'footprintjs-iac/system';
+import { bindSystem } from 'footprintjs-iac/binding';
+import { awsObjectStorageProfile, cloudFormationOutput, synthesize } from 'footprintjs-iac/synthesis';
 
 const design = system('archive').addStorage('state', storage => storage
   .addStore('documents', store => store

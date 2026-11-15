@@ -1,9 +1,9 @@
 # Recorded dependency queries
 
-`footprint-iac/diagnostics/recorded` is the browser-safe entry point for a dashboard or another consumer of the base library. It imports no filesystem, provider, application wrapper, React or credential-storage code.
+`footprintjs-iac/diagnostics/recorded` is the browser-safe entry point for a dashboard or another consumer of the base library. It imports no filesystem, provider, application wrapper, React or credential-storage code.
 
 ```ts
-import { queryRecordedDependencies, readRecordedDependencyResult } from 'footprint-iac/diagnostics/recorded';
+import { queryRecordedDependencies, readRecordedDependencyResult } from 'footprintjs-iac/diagnostics/recorded';
 
 const answer = queryRecordedDependencies({
   snapshot: savedNativeEvidence.snapshot,

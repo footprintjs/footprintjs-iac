@@ -2,10 +2,10 @@
 
 Release policy depends on the generic `CheckRunner` interface. HTTP, a command-based test runner, Playwright or a company-specific probe are adapters. A `CheckRequest` names an exact immutable suite, release, environment, stage and invocation; it has no executable, URL, filesystem path or environment variables. The sealed release digest joins the run to its source commit, build recipe and artifacts. Only `passed` is eligible for promotion. `failed`, `inconclusive`, `error` and `skipped` stop a gate.
 
-Browser-safe admission/types are exported from `footprint-iac/checks` and `footprint-iac/triggers`. Node effects are separate exports from `footprint-iac/checks/node` and `footprint-iac/triggers/node`. Lens sends registered IDs. The host owns catalogs, credentials, authorization and private configuration.
+Browser-safe admission/types are exported from `footprintjs-iac/checks` and `footprintjs-iac/triggers`. Node effects are separate exports from `footprintjs-iac/checks/node` and `footprintjs-iac/triggers/node`. Lens sends registered IDs. The host owns catalogs, credentials, authorization and private configuration.
 
 ```ts
-import { HttpCheckAdapter, CommandCheckAdapter } from 'footprint-iac/checks/node';
+import { HttpCheckAdapter, CommandCheckAdapter } from 'footprintjs-iac/checks/node';
 
 const http = new HttpCheckAdapter({ id: 'http', suites: [{
   id: 'readiness', label: 'Application ready', kind: 'http', digest: reviewedSuiteDigest,
@@ -36,7 +36,7 @@ The command adapter uses `execFile` without a shell. The host registers the exec
 An interval definition specifies `schedule:{everyMs,startsAt}`, `missed:'skip'|'coalesce'` and `overlap:'skip'`. A scheduler host supplies the clock and wakeup mechanism; a system scheduler, service worker process or another scheduling adapter can call `tick()`. There is no infinite background loop in the library or Lens and no animation that manufactures monitoring progress. A late tick either records one skip or coalesces one run; it never replays an unbounded backlog. Each actual invocation creates a native `CheckWorkflow` recording.
 
 ```ts
-import { TriggerDispatcher, FileTriggerStore, IntervalTriggerAdapter } from 'footprint-iac/triggers/node';
+import { TriggerDispatcher, FileTriggerStore, IntervalTriggerAdapter } from 'footprintjs-iac/triggers/node';
 const dispatcher = new TriggerDispatcher({
   definitions: registeredJobs, adapters: [new IntervalTriggerAdapter()], checks: [http, integration],
   store: new FileTriggerStore('/private/state/monitoring'),

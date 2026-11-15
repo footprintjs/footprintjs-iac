@@ -1,8 +1,12 @@
-# Footprint IaC — capabilities, system graphs and recorded infrastructure
+# FootPrintJS IaC — InfraChart
+
+**Define infrastructure as a graph. Deploy, observe and explain every change.**
 
 A TypeScript infrastructure framework built on **FootPrint 12.1.0** and **Foottrace 1.15.0**. Foundation version **0.4.0** describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk. Native recorders also drive live deployment progress and checked output generation.
 
-This is an executable prototype with a simulator, a Kubernetes adapter and recorded native artifact generation. The separate [IaC Lens](https://github.com/footprintjs/footprint-iac-lens) supplies a live system view and Flow Lens evidence inspection. This remains a single-machine foundation, not a production deployment service.
+`footprintjs-iac` is the package name; **InfraChart** is its display name. The package remains private and unpublished. Existing state directories, Kubernetes ownership annotations and field-manager names, local fixture image references and systemd markers retain their original `footprint-iac` identifiers so the naming change preserves recorded resource ownership.
+
+This is an executable prototype with a simulator, a Kubernetes adapter and recorded native artifact generation. The separate [InfraChart Lens](https://github.com/footprintjs/footprintjs-iac-lens) supplies a live system view and Flow Lens evidence inspection. This remains a single-machine foundation, not a production deployment service.
 
 Start with the [capability and wrapper guide](docs/CAPABILITIES.md). The [identity and permission guide](docs/IDENTITY.md) covers generic access policies, recorded authorization and the LDAP adapters. See [VALIDATION.md](VALIDATION.md) for current checks and the earlier completed real Neo Kubernetes trial. The [design notes](docs/DESIGN.md) define graph semantics and implementation boundaries.
 
@@ -43,8 +47,8 @@ Its [local SQLite adapter](docs/sqlite-migration.md) exercises real record trans
 with a cooperating single-host consumer; it does not migrate Neo's current data.
 
 ```ts
-import { system, artifact, ref } from 'footprint-iac/system';
-import { bindSystem, simulationProfile } from 'footprint-iac/binding';
+import { system, artifact, ref } from 'footprintjs-iac/system';
+import { bindSystem, simulationProfile } from 'footprintjs-iac/binding';
 
 const design = system('example')
   .addNetwork('network', n => n.addSegment('backend'))
@@ -121,9 +125,9 @@ native deployment run ID have separate meanings. The Node host supplies the
 engine, provider credentials, durable stores and target binding:
 
 ```ts
-import { infra, resource, InfraEngine, FileStateStore, SimulatorAdapter } from 'footprint-iac';
-import { createDeploymentRecorder } from 'footprint-iac/progress';
-import { defineSystemRevision, FileMasterStore, MasterWorkflow } from 'footprint-iac/master/workflow';
+import { infra, resource, InfraEngine, FileStateStore, SimulatorAdapter } from 'footprintjs-iac';
+import { createDeploymentRecorder } from 'footprintjs-iac/progress';
+import { defineSystemRevision, FileMasterStore, MasterWorkflow } from 'footprintjs-iac/master/workflow';
 
 const graph = (image: string) => infra('master-example')
   .start(resource('app', 'simulator', { image })).synth();
@@ -188,8 +192,8 @@ catalogs, cloud providers, on-premises services and manual provisioning can
 supply this contract. The source resource ID is distinct from the workflow ID.
 
 ```ts
-import type { ResourceFlowAdapters } from 'footprint-iac/resource-flow';
-import { FileResourceFlowStore, ResourceFlowWorkflow } from 'footprint-iac/resource-flow/workflow';
+import type { ResourceFlowAdapters } from 'footprintjs-iac/resource-flow';
+import { FileResourceFlowStore, ResourceFlowWorkflow } from 'footprintjs-iac/resource-flow/workflow';
 
 function companyHistoryConnection(adapters: ResourceFlowAdapters, configurationDigest: string) {
   return new ResourceFlowWorkflow({
@@ -246,7 +250,7 @@ than copying the ledger or replaying a create blindly. Existing engine ownership
 and master revision guards are unchanged. This workflow does not import an
 externally owned source into infrastructure management.
 
-The pure `footprint-iac/resource-flow` export provides JSON types and the bounded
+The pure `footprintjs-iac/resource-flow` export provides JSON types and the bounded
 `readResourceFlowState` reader for headless clients. Node orchestration lives in
 the separate `/workflow` export. Subscribers receive provider/recorder-driven
 state changes, including waiting, failure and partial outcomes; there are no
@@ -261,7 +265,7 @@ from the older one-build and master-upgrade examples.
 With a Kubernetes-bound design, export the complete desired graph through native output recorders:
 
 ```ts
-import { synthesize, kubernetesOutput } from 'footprint-iac/synthesis';
+import { synthesize, kubernetesOutput } from 'footprintjs-iac/synthesis';
 
 const output = await synthesize(binding.graph, {
   outputs: [kubernetesOutput(), kubernetesOutput({ format: 'yaml' })],
@@ -280,13 +284,13 @@ npm run synthesis:demo
 
 The demo writes native Kubernetes and CloudFormation files, source graphs and their synthesis recordings under `.artifacts/synthesis`. Binding selection itself remains pure compilation with static decision metadata; the new native recording covers generation from the bound graph and checked finalization.
 
-## Live progress and IaC Lens
+## Live progress and InfraChart Lens
 
 Attach the existing native recorder extension to an engine:
 
 ```ts
-import { InfraEngine, FileStateStore, SimulatorAdapter } from 'footprint-iac';
-import { createDeploymentRecorder } from 'footprint-iac/progress';
+import { InfraEngine, FileStateStore, SimulatorAdapter } from 'footprintjs-iac';
+import { createDeploymentRecorder } from 'footprintjs-iac/progress';
 
 const progress = createDeploymentRecorder();
 const stop = progress.subscribe(event => {
@@ -321,8 +325,8 @@ A host can prepare stable grey-node positions before execution using the same
 native chart constructor:
 
 ```ts
-import { previewDeploymentChart } from 'footprint-iac/progress/preview';
-import { readDeploymentSchedulePreview } from 'footprint-iac/progress';
+import { previewDeploymentChart } from 'footprintjs-iac/progress/preview';
+import { readDeploymentSchedulePreview } from 'footprintjs-iac/progress';
 
 const plan = await engine.plan(binding.graph); // Separate read-only provider observations.
 const preview = previewDeploymentChart(plan, {
@@ -338,12 +342,12 @@ It only describes the supplied plan's native schedule. Apply still replans, and
 its actual native chart takes precedence when published; recorded events alone
 advance resource progress.
 
-The independently versioned [footprint-iac-lens](https://github.com/footprintjs/footprint-iac-lens) repository supplies the separate dashboard. Its root and `/core` APIs expose TypeScript models and transport without React imports; `/react` provides the optional React surface using Flow Lens. The resource system chart and native execution chart are separate views: infrastructure relationships describe the system, while the execution recording shows what this run did. See [PROGRESS.md](docs/PROGRESS.md) for recorder usage, status semantics and the UI boundary.
+The independently versioned [footprintjs-iac-lens](https://github.com/footprintjs/footprintjs-iac-lens) repository supplies the separate dashboard. Its root and `/core` APIs expose TypeScript models and transport without React imports; `/react` provides the optional React surface using Flow Lens. The resource system chart and native execution chart are separate views: infrastructure relationships describe the system, while the execution recording shows what this run did. See [PROGRESS.md](docs/PROGRESS.md) for recorder usage, status semantics and the UI boundary.
 
 Connection checks run in a separate native FootPrint chart, after resources are ready:
 
 ```ts
-import { checkConnections, createConnectionRecorder, KubernetesConnectionAdapter } from 'footprint-iac/connections';
+import { checkConnections, createConnectionRecorder, KubernetesConnectionAdapter } from 'footprintjs-iac/connections';
 
 const connections = createConnectionRecorder();
 connections.subscribe(event => console.log(event.connectionId, event.status));
@@ -364,7 +368,7 @@ Native `checking`, `connected` and `failed` events drive Lens communication edge
 Identity sources and access policies are generic crosscutting declarations. Provider adapters supply authentication and directory integration:
 
 ```ts
-import { defineIdentitySource, defineAccessPolicy, authorizeAccess } from 'footprint-iac/identity';
+import { defineIdentitySource, defineAccessPolicy, authorizeAccess } from 'footprintjs-iac/identity';
 
 const source = defineIdentitySource({ id: 'company-directory', kind: 'directory' });
 // ownership defaults to 'external'; this reference does not create or own the directory.
@@ -379,9 +383,9 @@ const authorization = await authorizeAccess({ policy, subject,
 // The host must enforce authorization.decision.effect before serving protected data.
 ```
 
-A rule matches `source AND (subject OR group) AND action AND resource`, using exact values. Unmatched requests are denied; a matching explicit deny overrides every allow. `evaluateAccess` is the pure evaluator, also available through the Node-free `footprint-iac/identity/policy` export. `authorizeAccess` evaluates the same policy in a native FootPrint workflow, recording safe identity, policy and request inputs plus the allowed/denied branch. Neither function authenticates a caller or enforces a decision on its own.
+A rule matches `source AND (subject OR group) AND action AND resource`, using exact values. Unmatched requests are denied; a matching explicit deny overrides every allow. `evaluateAccess` is the pure evaluator, also available through the Node-free `footprintjs-iac/identity/policy` export. `authorizeAccess` evaluates the same policy in a native FootPrint workflow, recording safe identity, policy and request inputs plus the allowed/denied branch. Neither function authenticates a caller or enforces a decision on its own.
 
-`footprint-iac/identity/ldap` supplies a real `LdapSourceAdapter` for bounded LDAPS authentication/group lookup and a separate pure `LdapIdentityAdapter` for LDAP-to-Keycloak federation configuration. Both keep LDAP-specific choices outside the generic policy API. Secret resolvers/references supply credentials at runtime; do not put passwords, tokens or signing keys in graph JSON or diagnostic metadata.
+`footprintjs-iac/identity/ldap` supplies a real `LdapSourceAdapter` for bounded LDAPS authentication/group lookup and a separate pure `LdapIdentityAdapter` for LDAP-to-Keycloak federation configuration. Both keep LDAP-specific choices outside the generic policy API. Secret resolvers/references supply credentials at runtime; do not put passwords, tokens or signing keys in graph JSON or diagnostic metadata.
 
 `checkIdentityAccess` runs declared login/access/directory checks through a trusted observation adapter. Native `checking`, `passed` and `failed` events drive Lens's identity panel. An expected denial passes only when the adapter observes denial; an unavailable identity backend is a separate failed observation. Identity checks preserve their own recording and do not change a successful infrastructure deployment into a failed resource run.
 
@@ -393,7 +397,7 @@ The [local Neo identity integration](integration/identity/README.md) composes an
 import {
   infra, resource, graphToMermaid,
   InfraEngine, FileStateStore, SimulatorAdapter,
-} from 'footprint-iac';
+} from 'footprintjs-iac';
 
 const network = resource('network', 'simulator', { cidr: '10.42.0.0/24' });
 const database = resource('database', 'simulator', { engine: 'example-sql' });
@@ -449,7 +453,7 @@ npm run iac -- inspect /absolute/path/to/run.json
 
 ## Select a deployment strategy
 
-`footprint-iac/deployment-strategy` provides one registered controller interface:
+`footprintjs-iac/deployment-strategy` provides one registered controller interface:
 `plan({revisionId})`, `apply(reviewId)` and `snapshot()`. A host registers adapters
 and selects an ID through `DeploymentStrategyRegistry`; customer data selects an
 existing registration rather than supplying commands, credentials or code.
@@ -539,7 +543,7 @@ The Kubernetes comparison projects live objects onto declared fields, ignoring s
 
 The base [connection profile API](docs/connection-profiles.md) accepts adapter-declared connection settings and keeps credentials behind a pluggable secret store. Saved immutable profile IDs can be selected before Find and retained across native human pause/resume. Memory and encrypted local-file adapters are included; a host can supply its own approved secret backend.
 
-The [Neo existing-system example](docs/neo-existing-connections.md) consumes this API. IaC Lens renders its declared connection form and tests the supplied details against the real existing local identity service. The generic registry, workflow and form contain no Neo-specific switches.
+The [Neo existing-system example](docs/neo-existing-connections.md) consumes this API. InfraChart Lens renders its declared connection form and tests the supplied details against the real existing local identity service. The generic registry, workflow and form contain no Neo-specific switches.
 
 The consumer app is the separate private [Neo AgentFootprint repository](https://github.com/sanjay1909/neo-agentfootprint). Its checkout is read-only for this integration. [`integration/neo`](integration/neo/README.md) snapshots the clean committed source, builds separate Node and Python images, and provides a Kubernetes binding plus a real health/UI/SQLite-tool smoke test. Default model replies remain the app's scripted fixture; no live collector or model credentials are configured.
 

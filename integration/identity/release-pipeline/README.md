@@ -59,7 +59,7 @@ When a release catalog has resolved a reviewed source version, pass its `SourceR
 Existing prepared releases can also be registered explicitly. A manifest alone cannot locate private build files: its paired host publication must contain `metadata:{candidatePath,repository,commit,tree}` and exactly the same artifact identities/references. These paths never come from Lens requests.
 
 ```ts
-import { createNeoReleasePipeline } from 'footprint-iac/integration/identity/release-pipeline';
+import { createNeoReleasePipeline } from 'footprintjs-iac/integration/identity/release-pipeline';
 
 const consumer = await createNeoReleasePipeline({
   environments: [{

@@ -15,10 +15,10 @@ The original source, backup and replacement are never deleted by this API. Write
 
 ## Public composition
 
-- `footprint-iac/migration` exports types, structural readers, `offlineTransferStrategy` and pure `compileMigrationPlan`.
-- `footprint-iac/migration/node` exports `MigrationWorkflow`, `FileMigrationStore`, `FileMigrationLocks` and read-only `loadMigrationRecording`.
-- `footprint-iac/migration/sqlite` supplies the local cooperating SQLite adapter and consumer.
-- `footprint-iac/change-assessment/node` supplies sealed assessment reports and provider-aware assessment workflows.
+- `footprintjs-iac/migration` exports types, structural readers, `offlineTransferStrategy` and pure `compileMigrationPlan`.
+- `footprintjs-iac/migration/node` exports `MigrationWorkflow`, `FileMigrationStore`, `FileMigrationLocks` and read-only `loadMigrationRecording`.
+- `footprintjs-iac/migration/sqlite` supplies the local cooperating SQLite adapter and consumer.
+- `footprintjs-iac/change-assessment/node` supplies sealed assessment reports and provider-aware assessment workflows.
 
 ```ts
 const plan = compileMigrationPlan(definition, registry);

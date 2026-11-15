@@ -7,7 +7,7 @@ function packageRoot(start: string): string {
   for (;;) {
     try {
       const metadata = JSON.parse(readFileSync(resolve(directory, 'package.json'), 'utf8')) as { name?: string };
-      if (metadata.name === 'footprint-iac') return directory;
+      if (metadata.name === 'footprintjs-iac') return directory;
     } catch { /* Continue through ordinary source/build directories. */ }
     const parent = dirname(directory); if (parent === directory) throw new Error('Identity integration package root is unavailable');
     directory = parent;

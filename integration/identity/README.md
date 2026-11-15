@@ -93,7 +93,7 @@ The default Neo fixture and its existing namespace are unchanged. This integrati
 
 ## Prepare and deploy
 
-Requirements: Node 24+, Git, Docker's Linux engine, kind, kubectl, OpenSSL, and the sibling IaC Lens checkout. Build the core and Lens using their documented local checks. The Neo checkout must contain the identity gateway, browser login and isolated `neo-access-recorder` package; the historical Neo fixture commit alone does not include this feature.
+Requirements: Node 24+, Git, Docker's Linux engine, kind, kubectl, OpenSSL, and the sibling InfraChart Lens checkout. Build the core and Lens using their documented local checks. The Neo checkout must contain the identity gateway, browser login and isolated `neo-access-recorder` package; the historical Neo fixture commit alone does not include this feature.
 
 Keep enough Docker VM memory available for the selected cluster, directory and
 broker. Prefer a previously prepared owned recording cluster with a fresh
@@ -268,9 +268,9 @@ signing-key bodies stay outside the recording.
 Hosts can compose the same public integration without the example server:
 
 ```ts
-import { checkConnections } from 'footprint-iac/connections';
+import { checkConnections } from 'footprintjs-iac/connections';
 import { loadIdentityTarget, createIdentityGraph, neoIdentityConnectionAdapter,
-  applyNeoIdentityFault } from 'footprint-iac/integration/identity';
+  applyNeoIdentityFault } from 'footprintjs-iac/integration/identity';
 
 const target = await loadIdentityTarget('/printed/identity/target.json');
 const graph = createIdentityGraph(target, { includeNeo: true });
@@ -292,8 +292,8 @@ npm run identity:cleanup -- /printed/identity/target.json
 The Create/Find composition also exposes a browser-safe observation feed:
 
 ```ts
-import { createNeoResourceFlow } from 'footprint-iac/integration/identity';
-import type { NeoResourceFlowObservation } from 'footprint-iac/integration/identity/resource-flow-view';
+import { createNeoResourceFlow } from 'footprintjs-iac/integration/identity';
+import type { NeoResourceFlowObservation } from 'footprintjs-iac/integration/identity/resource-flow-view';
 
 const flow = await createNeoResourceFlow(preparedTargetPath, { mode: 'existing' });
 const show = (value: NeoResourceFlowObservation) => render(value);
