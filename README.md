@@ -1,6 +1,6 @@
 # Footprint IaC — capabilities, system graphs and recorded infrastructure
 
-A TypeScript infrastructure framework built on **FootPrint 11.1.0** and **Foottrace 1.12.0**. Foundation version **0.4.0** describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk. Native recorders also drive live deployment progress and checked output generation.
+A TypeScript infrastructure framework built on **FootPrint 12.1.0** and **Foottrace 1.15.0**. Foundation version **0.4.0** describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk. Native recorders also drive live deployment progress and checked output generation.
 
 This is an executable prototype with a simulator, a Kubernetes adapter and recorded native artifact generation. The separate [IaC Lens](https://github.com/footprintjs/footprint-iac-lens) supplies a live system view and Flow Lens evidence inspection. This remains a single-machine foundation, not a production deployment service.
 
@@ -8,7 +8,39 @@ Start with the [capability and wrapper guide](docs/CAPABILITIES.md). The [identi
 
 For another laptop, start with the [clone, setup and test guide](docs/SHARING.md). The [agent handoff](docs/NEO-AGENT-HANDOFF.md) is ready to forward with the repository link. Both this repository and the separate Neo source repository require GitHub access.
 
+The host-only [platform bootstrap API](docs/platform-bootstrap.md) separates server
+access/discovery, installation strategies and cluster lifecycle adapters. It
+records Create/Find → connection publication → Connect → Verify, including
+per-action preflight, durable intent and human pause/resume. Pinned local/SSH
+transports and kubeadm/existing-cluster adapters keep installer tools outside the
+core workflow. The [workload adapter](docs/kubernetes-workload.md) then deploys
+application containers into the registered cluster.
+
 ## Capability API
+
+Release delivery has separate interfaces for source catalogs, build/publication,
+rollout strategies, effect adapters, check runners and trigger/storage adapters.
+Build once into a sealed manifest, then promote the same content through
+host-configured environments. Native recordings retain real rollout, approval,
+acceptance and verified application recovery outcomes. See the [release guide](docs/releases.md),
+[strategy contracts](docs/release-strategies.md), and [checks and triggers](docs/checks-and-triggers.md).
+Neo composes these contracts in its [local release consumer](integration/identity/release-pipeline/README.md);
+its current adapter supports direct application updates with rollback disabled.
+The [Neo release automation consumer](integration/identity/release-automation/README.md)
+adds manual Lens initiation and host-driven discovery of new published versions.
+It builds one exact source revision and promotes the same artifacts through
+registered dev, gamma and prod targets. Normal Neo release plans now run
+mandatory recorded provider preflight and revalidate before apply; unsupported,
+replacement or unknown changes stop before the candidate is applied. FootPrint
+records observation, capability evidence, strategy choice, common safeguards and
+the decision as separate backwalkable stages. See [generic automation](docs/release-automation.md)
+and the sibling Lens guide `docs/neo-release-automation.md` for host setup.
+Database migration and automatic resource replacement are not inferred by resource reconciliation.
+The separate opt-in [change assessment](docs/change-assessment.md) workflow records
+provider validation before selecting an execution path. [Guarded migration](docs/migration.md)
+adds explicit write fencing, backup/data verification and human cutover gates.
+Its [local SQLite adapter](docs/sqlite-migration.md) exercises real record transfer
+with a cooperating single-host consumer; it does not migrate Neo's current data.
 
 ```ts
 import { system, artifact, ref } from 'footprint-iac/system';
@@ -415,6 +447,26 @@ npm run iac -- inspect /absolute/path/to/run.json
 
 `inspect` exposes `explainRun()` as JSON: recorded failure, graph digest, declared boundary memberships and a flat Foottrace dependency slice. It makes no provider calls and retains coverage/missing/truncation notes. `graphToMermaid()` and `graphToSvg()` produce views from the same artifact. Overlapping same-kind memberships render one resource once, with additional membership annotations.
 
+## Select a deployment strategy
+
+`footprint-iac/deployment-strategy` provides one registered controller interface:
+`plan({revisionId})`, `apply(reviewId)` and `snapshot()`. A host registers adapters
+and selects an ID through `DeploymentStrategyRegistry`; customer data selects an
+existing registration rather than supplying commands, credentials or code.
+
+The Kubernetes adapter wraps an existing guarded controller. The systemd adapter
+uses the same InfraEngine, Master and recorded checks over registered installed
+services. Coupled services use one systemd transaction so native `Requires` and
+`After` dependencies retain their meaning. Plans bind actual machine and service
+facts, are revalidated before effects, and require application checks before
+promotion. Unchanged services are no-ops.
+
+The generic systemd host supports a bounded local process runner or a privately
+registered SSH/API runner. Neo and other applications supply their own service
+bindings, release/configuration digests and measured acceptance policy. Selecting
+a strategy does not migrate data or move application traffic. See
+[deployment strategy contracts and examples](docs/deployment-strategies.md).
+
 ## Small modules
 
 - `src/system`: capability builders, typed references, validation, recipes and intent views.
@@ -426,6 +478,9 @@ npm run iac -- inspect /absolute/path/to/run.json
 - `src/progress`: native deployment-event validation, live projection and subscribers.
 - `src/identity`: generic sources, exact permission policies and native authorization/check workflows.
 - `src/identity-ldap`: strict LDAPS authentication and pure LDAP federation binding.
+- `src/change-assessment`: read-only provider probes, classification strategies and sealed reports.
+- `src/migration`: opt-in protected replacement stages, durable checkpoints and manual gates.
+- `src/migration-sqlite`: the separate owned local SQLite adapter and cooperating consumer.
 - `src/synthesis/create-synthesis-chart.ts`: the dedicated native synthesis chart construction.
 - `src/synthesis`: checked output recorders, native encodings, references and source mappings.
 - `src/diagnostics/explain.ts`: structured read-only investigation.
@@ -481,6 +536,10 @@ Use `apply` after reviewing the plan. Context names bind state to a configured t
 The Kubernetes comparison projects live objects onto declared fields, ignoring server defaults. Lists remain positional and length-sensitive. Removing previously declared Kubernetes fields/list entries or renaming named list entries is explicitly rejected: initial POST field ownership can otherwise retain an omitted field. Automatic immutable-field replacement, Secrets, CRDs, imports/adoption and distributed state are outside this prototype. The simulator supports field removal for exercising the general planner.
 
 ## Neo AgentFootprint trial
+
+The base [connection profile API](docs/connection-profiles.md) accepts adapter-declared connection settings and keeps credentials behind a pluggable secret store. Saved immutable profile IDs can be selected before Find and retained across native human pause/resume. Memory and encrypted local-file adapters are included; a host can supply its own approved secret backend.
+
+The [Neo existing-system example](docs/neo-existing-connections.md) consumes this API. IaC Lens renders its declared connection form and tests the supplied details against the real existing local identity service. The generic registry, workflow and form contain no Neo-specific switches.
 
 The consumer app is the separate private [Neo AgentFootprint repository](https://github.com/sanjay1909/neo-agentfootprint). Its checkout is read-only for this integration. [`integration/neo`](integration/neo/README.md) snapshots the clean committed source, builds separate Node and Python images, and provides a Kubernetes binding plus a real health/UI/SQLite-tool smoke test. Default model replies remain the app's scripted fixture; no live collector or model credentials are configured.
 

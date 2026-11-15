@@ -14,6 +14,8 @@ import { writeNeoFlowJson } from '../integration/identity/resource-flow-files.ts
 import { applyNeoIdentityFault } from '../integration/identity/apply-fault.ts';
 import { createNeoIdentityFaultGraph } from '../integration/identity/fault-graph.ts';
 import { fingerprint } from '../src/util.ts';
+import { MemoryConnectionProfileStore, MemorySecretStore } from '../src/connection-profiles/index.ts';
+import { NEO_EXISTING_IDENTITY_ADAPTER } from '../integration/identity/connection-profiles.ts';
 
 const image = (digit: string) => 'sha256:' + digit.repeat(64);
 async function fixture(t: { after(callback: () => Promise<void>): void }) {
@@ -66,6 +68,104 @@ async function fixture(t: { after(callback: () => Promise<void>): void }) {
   return { target, targetPath, directory, original, simulator, observed, engine, open, dependencies,
     adapters: [adapter('local-identity-fixture'), adapter('kubernetes')] };
 }
+
+test('Neo consumes user-entered existing connection details, pins them across a native human pause and keeps credentials out of evidence', async t => {
+  const f = await fixture(t), baseline = f.engine(f.target);
+  assert.equal((await baseline.engine.apply(createNeoAcquisitionGraph(f.target))).ok, true); f.simulator.calls.length = 0;
+  const secret = 'private-validation-password-never-record-me', requests: { url: string; method: string }[] = [];
+  f.dependencies.connectionProfileStores = { profiles: new MemoryConnectionProfileStore(), secrets: new MemorySecretStore() };
+  f.dependencies.discoveryFetch = async (input, init) => {
+    const url = String(input); requests.push({ url, method: init?.method ?? 'GET' });
+    if (url.endsWith('/protocol/openid-connect/token')) {
+      const body = new URLSearchParams(init?.body as URLSearchParams);
+      assert.equal(body.get('client_id'), 'neo-checks'); assert.equal(body.get('username'), 'alice');
+      return body.get('password') === secret ? Response.json({ access_token: 'private-ephemeral-token-never-record-me' })
+        : Response.json({ error: 'invalid_grant', error_description: secret }, { status: 400 });
+    }
+    return Response.json({ issuer: f.target.issuer, jwks_uri: f.target.issuer + '/protocol/openid-connect/certs',
+      authorization_endpoint: f.target.issuer + '/protocol/openid-connect/auth', token_endpoint: f.target.issuer + '/protocol/openid-connect/token' });
+  };
+  const options: NeoResourceFlowOptions = { mode: 'existing', profiles: 'user', details: 'human', id: 'user-entered-existing' };
+  const flow = await f.open(options), registry = flow.connectionProfiles!;
+  assert.deepEqual(await registry.list(), []);
+  const beforeMissing = f.observed.find;
+  await assert.rejects(flow.workflow.start());
+  assert.equal(f.observed.find, beforeMissing, 'missing locator is rejected before Find');
+  const registration = { adapterId: NEO_EXISTING_IDENTITY_ADAPTER, label: 'Company sign-in service',
+    config: { issuer: f.target.issuer, clientId: 'neo-checks', username: 'alice' }, secrets: { password: secret } };
+  await assert.rejects(registry.register({ ...registration, config: { ...registration.config, issuer: 'http://169.254.169.254/metadata' } }));
+  assert.equal(requests.length, 0, 'unapproved destinations are rejected before network access');
+  await assert.rejects(registry.register({ ...registration, secrets: { password: 'wrong' } }), error => {
+    assert.ok(!String(error).includes(secret)); return true;
+  });
+  assert.deepEqual(await registry.list(), []);
+  const profile = await registry.register(registration);
+  assert.equal(profile.config.issuer, registration.config.issuer); assert.ok(profile.secretRefs.password);
+  assert.ok(!JSON.stringify(profile).includes(secret));
+  assert.deepEqual(await registry.test(profile.id), { profileId: profile.id, ok: true });
+  const paused = await flow.workflow.start({ profileId: profile.id });
+  assert.equal(paused.status, 'paused'); assert.equal(paused.selectedProfileId, profile.id);
+  assert.equal(paused.resource?.physicalId.length, 64); assert.equal(paused.pause?.profiles[0]?.id, profile.id);
+  assert.equal(f.simulator.calls.length, 0);
+  const otherProfile = await registry.register({ ...registration, label: 'Another saved connection' });
+  await assert.rejects(flow.workflow.resume({ pauseToken: paused.pause!.token, profileId: otherProfile.id }));
+  assert.equal((await flow.workflow.snapshot()).status, 'paused', 'another registration does not replace the pinned profile');
+  const reopened = await f.open(options);
+  const complete = await reopened.workflow.resume({ pauseToken: paused.pause!.token, profileId: profile.id });
+  assert.equal(complete.status, 'passed'); assert.equal(complete.details?.profileId, profile.id);
+  assert.equal(complete.details?.endpoint, registration.config.issuer);
+  assert.equal(complete.details?.credentialRef, 'profile-' + profile.id);
+  assert.equal(complete.segments[1]?.resumedFromRunId, complete.segments[0]?.runId);
+  assert.deepEqual(f.simulator.calls.map(call => call.id), ['neo-namespace', 'neo-access-policy', 'neo-app', 'neo-service']);
+  assert.ok(f.simulator.calls.every(call => !call.id.startsWith('identity-')), 'Find never recreates or changes its source');
+  const files = await readdir(reopened.directory, { recursive: true });
+  for (const file of files.filter(file => /\.jsonl?$/.test(file))) {
+    const recorded = await readFile(join(reopened.directory, file), 'utf8');
+    assert.ok(!recorded.includes(secret), file); assert.ok(!recorded.includes('private-ephemeral-token-never-record-me'), file);
+  }
+  assert.ok(requests.some(request => request.url === registration.config.issuer + '/protocol/openid-connect/token'));
+});
+
+test('user-profile rechecks retain failed and recovered measurements when the admitted sign-in service is unavailable', async t => {
+  const f = await fixture(t), baseline = f.engine(f.target);
+  assert.equal((await baseline.engine.apply(createNeoAcquisitionGraph(f.target))).ok, true); f.simulator.calls.length = 0;
+  let available = true, authenticationRequests = 0;
+  f.dependencies.connectionProfileStores = { profiles: new MemoryConnectionProfileStore(), secrets: new MemorySecretStore() };
+  f.dependencies.discoveryFetch = async input => {
+    authenticationRequests++;
+    if (!available) throw Error('The admitted sign-in service is offline');
+    return String(input).endsWith('/token') ? Response.json({ access_token: 'private-transient-validation-token' })
+      : Response.json({ issuer: f.target.issuer, jwks_uri: f.target.issuer + '/protocol/openid-connect/certs',
+        authorization_endpoint: f.target.issuer + '/protocol/openid-connect/auth', token_endpoint: f.target.issuer + '/protocol/openid-connect/token' });
+  };
+  f.dependencies.connections = async () => ({ async check(request) {
+    if (!available) throw Error('Measured connection unavailable');
+    return { method: 'test-transport', target: request.connectionId, observedAt: Date.now(), latencyMs: 1, details: { status: 200 } };
+  } });
+  f.dependencies.identity = async () => ({ id: 'measured-access', async check(request) {
+    return { verdict: available ? request.expected : 'unavailable', observedAt: Date.now(), latencyMs: 1 };
+  } });
+  const flow = await f.open({ mode: 'existing', profiles: 'user', id: 'profile-outage-observation' });
+  const profile = await flow.connectionProfiles!.register({ adapterId: NEO_EXISTING_IDENTITY_ADAPTER, label: 'Existing sign-in',
+    config: { issuer: f.target.issuer, clientId: 'neo-checks', username: 'alice' }, secrets: { password: 'private-validation-password' } });
+  assert.equal((await flow.workflow.start({ profileId: profile.id })).status, 'passed');
+  const mutations = structuredClone(f.simulator.calls), originalParent = await flow.workflow.snapshot();
+  const originalAuthenticationRequests = authenticationRequests;
+  available = false; f.observed.stopped = true;
+  const failedConnections = await flow.recheckConnections(), failedIdentity = await flow.recheckIdentity();
+  assert.equal(failedConnections.ok, false); assert.equal(failedIdentity.ok, false);
+  assert.equal(Object.keys(failedConnections.checks).length, 3); assert.equal(Object.keys(failedIdentity.checks).length, 7);
+  assert.ok(Object.values(failedConnections.checks).every(check => check.status === 'failed'));
+  assert.ok(Object.values(failedIdentity.checks).every(check => check.status === 'failed'));
+  assert.equal(authenticationRequests, originalAuthenticationRequests, 'binding admission does not preempt measured checks with a profile-authentication request');
+  available = true; f.observed.stopped = false;
+  const recoveredConnections = await flow.recheckConnections(), recoveredIdentity = await flow.recheckIdentity();
+  assert.equal(recoveredConnections.ok, true); assert.equal(recoveredIdentity.ok, true);
+  assert.notEqual(failedConnections.runId, recoveredConnections.runId); assert.notEqual(failedIdentity.runId, recoveredIdentity.runId);
+  const retained = await flow.observation.snapshot();
+  assert.equal(retained.connections.length, 3); assert.equal(retained.identities.length, 3);
+  assert.deepEqual(f.simulator.calls, mutations); assert.deepEqual(await flow.workflow.snapshot(), originalParent);
+});
 
 test('Neo create flow records two identity creates, then separately configures four consumer resources and verifies actual workflow results', async t => {
   const f = await fixture(t), flow = await f.open({ mode: 'create' });

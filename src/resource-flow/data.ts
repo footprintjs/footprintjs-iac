@@ -1,5 +1,5 @@
 import { freeze, identifier, jsonCopy } from '../graph/data.ts';
-import type { ConnectionDetails, ConnectionProfileChoice, FlowReceipt, ResourceFlowDefinition, ResourceFlowFailure, ResourceFlowResumeInput, ResourceFlowState, ResourceHandle, VerificationResult } from './types.ts';
+import type { ConnectionDetails, ConnectionProfileChoice, FlowReceipt, ResourceFlowDefinition, ResourceFlowFailure, ResourceFlowResumeInput, ResourceFlowStartInput, ResourceFlowState, ResourceHandle, VerificationResult } from './types.ts';
 
 function fail(): never { throw Error('Unsupported resource-flow public data'); }
 function object(input: unknown, allowed: string[]): Record<string, unknown> {
@@ -20,13 +20,13 @@ export function readResourceFlowDefinition(input: unknown): ResourceFlowDefiniti
   const target = object(value.target, ['id', 'scope']); identifier(target.id, 'resource flow target'); text(target.scope);
   return freeze(value as unknown as ResourceFlowDefinition);
 }
-export function readConnectionProfileChoices(input: unknown): ConnectionProfileChoice[] {
+export function readConnectionProfileChoices(input: unknown, options: { allowEmpty?: boolean } = {}): ConnectionProfileChoice[] {
   const ids = new Set<string>();
   const profiles = list(jsonCopy(input), 128).map(item => {
     const value = object(item, ['id', 'label']), id = identifier(value.id, 'connection profile'); text(value.label, 160);
     if (ids.has(id)) fail(); ids.add(id); return value as unknown as ConnectionProfileChoice;
   });
-  if (!profiles.length) fail(); return freeze(profiles);
+  if (!profiles.length && !options.allowEmpty) fail(); return freeze(profiles);
 }
 export function readFlowReceipt(input: unknown): FlowReceipt {
   const value = object(input, ['id', 'runId', 'evidencePath']); text(value.id, 256); optionalText(value.runId); optionalText(value.evidencePath);
@@ -41,6 +41,10 @@ export function readResourceFlowFailure(input: unknown): ResourceFlowFailure {
 export function readResourceFlowResumeInput(input: unknown): ResourceFlowResumeInput {
   const value = object(input, ['pauseToken', 'profileId']); digest(value.pauseToken); identifier(value.profileId, 'connection profile');
   return freeze(value as unknown as ResourceFlowResumeInput);
+}
+export function readResourceFlowStartInput(input: unknown): ResourceFlowStartInput {
+  const value = object(input, ['profileId']); identifier(value.profileId, 'connection profile');
+  return freeze(value as unknown as ResourceFlowStartInput);
 }
 export function readResourceHandle(input: unknown): ResourceHandle {
   const value = object(input, ['id', 'kind', 'physicalId', 'scope', 'receipt']);
@@ -69,7 +73,7 @@ export function readVerificationResult(input: unknown): VerificationResult {
 }
 /** Browser-safe admission; unknown fields, accessors and unbounded payloads are refused. */
 export function readResourceFlowState(input: unknown): ResourceFlowState {
-  const value = object(input, ['version', 'kind', 'definitionDigest', 'configurationDigest', 'id', 'resourceId', 'label', 'mode', 'target', 'executionId', 'status', 'stages', 'events', 'segments', 'resource', 'details', 'connection', 'verification', 'pause', 'error', 'failure']);
+  const value = object(input, ['version', 'kind', 'definitionDigest', 'configurationDigest', 'id', 'resourceId', 'label', 'mode', 'target', 'executionId', 'status', 'stages', 'events', 'segments', 'selectedProfileId', 'resource', 'details', 'connection', 'verification', 'pause', 'error', 'failure']);
   if (value.version !== 1 || value.kind !== 'resource-flow-state') fail(); digest(value.definitionDigest);
   readResourceFlowDefinition({ id: value.id, resourceId: value.resourceId, label: value.label, mode: value.mode, target: value.target, configurationDigest: value.configurationDigest });
   if (value.executionId !== null) text(value.executionId, 256);
@@ -98,6 +102,7 @@ export function readResourceFlowState(input: unknown): ResourceFlowState {
       || (segments[index - 1] as { status: string }).status !== 'paused') fail();
     segmentIds.add(String(segment.runId)); });
   if (value.resource !== undefined) readResourceHandle(value.resource);
+  if (value.selectedProfileId !== undefined) identifier(value.selectedProfileId, 'selected connection profile');
   if (value.details !== undefined) readConnectionDetails(value.details);
   if (value.connection !== undefined) readFlowReceipt(value.connection);
   if (value.verification !== undefined) readVerificationResult(value.verification);
@@ -108,12 +113,17 @@ export function readResourceFlowState(input: unknown): ResourceFlowState {
   const resource = value.resource as ResourceHandle | undefined, details = value.details as ConnectionDetails | undefined;
   if (resource && (resource.id !== value.resourceId || resource.scope !== (value.target as { scope: string }).scope)) fail();
   if (details && (!resource || details.resourceId !== resource.id)) fail();
+  if (details && value.selectedProfileId !== undefined && details.profileId !== value.selectedProfileId) fail();
   if (value.connection && !details) fail(); if (value.verification && !value.connection) fail();
-  if (value.pause !== undefined) { const pause = object(value.pause, ['token', 'prompt', 'profiles']); digest(pause.token); text(pause.prompt, 160); readConnectionProfileChoices(pause.profiles); }
+  if (value.pause !== undefined) {
+    const pause = object(value.pause, ['token', 'prompt', 'profiles']); digest(pause.token); text(pause.prompt, 160);
+    const profiles = readConnectionProfileChoices(pause.profiles);
+    if (value.selectedProfileId !== undefined && (profiles.length !== 1 || profiles[0]!.id !== value.selectedProfileId)) fail();
+  }
   if ((value.status === 'paused') !== (value.pause !== undefined)) fail(); optionalText(value.error);
   const allPassed = stages.every(item => (item as { status: string }).status === 'passed');
   if (value.status === 'idle' && (value.executionId !== null || (value.events as unknown[]).length || (value.segments as unknown[]).length
-    || stages.some(item => (item as { status: string }).status !== 'pending') || value.resource || value.details || value.connection || value.verification)) fail();
+    || stages.some(item => (item as { status: string }).status !== 'pending') || value.selectedProfileId || value.resource || value.details || value.connection || value.verification)) fail();
   if (value.status !== 'idle' && value.executionId === null) fail();
   if (value.status === 'passed' && (!allPassed || !value.resource || !value.details || !value.connection
     || (value.verification as VerificationResult | undefined)?.ok !== true

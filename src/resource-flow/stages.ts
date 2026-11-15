@@ -8,6 +8,7 @@ import { RESOURCE_FLOW_EVENT, type ConnectionDetails, type ConnectionProfileChoi
 
 export interface ResourceFlowStages {
   definition: ResourceFlowDefinition; definitionDigest: string; executionId: string; profiles: readonly ConnectionProfileChoice[];
+  selectedProfileId?: string;
   adapters: ResourceFlowAdapters;
   persist(scope: ResourceFlowScope): Promise<void>;
 }
@@ -54,7 +55,9 @@ function admittedDetails(config: ResourceFlowStages, resource: ResourceHandle, i
 export function acquireResourceStage(config: ResourceFlowStages): ResourceFlowStageFunction {
   return async scope => {
     scope.setValue('definition', config.definition); scope.setValue('definitionDigest', config.definitionDigest);
-    scope.setValue('context', { executionId: config.executionId, operationId: fingerprint(config.executionId), definitionDigest: config.definitionDigest });
+    scope.setValue('context', { executionId: config.executionId, operationId: fingerprint(config.executionId), definitionDigest: config.definitionDigest,
+      ...(config.selectedProfileId ? { profileId: config.selectedProfileId } : {}) });
+    if (config.selectedProfileId) scope.setValue('selectedProfileId', config.selectedProfileId);
     await progress(scope, config, 'acquire', 'running');
     const resource = await safe(scope, config, 'acquire', async () => {
       const action = config.definition.mode === 'create' ? config.adapters.create : config.adapters.find;
@@ -73,14 +76,15 @@ export function resolveDetailsStage(config: ResourceFlowStages): ResourceFlowSta
     if (scope.getValue('awaitingProfile') !== true) {
       details = await safe(scope, config, 'details', async () => {
         const resolved = await config.adapters.resolveDetails(resource, undefined, context(scope, 'details'));
-        return resolved === undefined ? undefined : admittedDetails(config, resource, resolved);
+        return resolved === undefined ? undefined : admittedDetails(config, resource, resolved, config.selectedProfileId);
       });
     }
     if (!details) {
       scope.setValue('awaitingProfile', true); await progress(scope, config, 'details', 'waiting');
       const answer = interrupt<{ profileId: string }>(scope, { reason: 'Choose a connection profile', expects: { profileIds: config.profiles.map(profile => profile.id) } });
       details = await safe(scope, config, 'details', async () => {
-        if (!answer || typeof answer !== 'object' || Object.keys(answer).length !== 1 || !config.profiles.some(profile => profile.id === answer.profileId)) throw Error('Unknown connection profile');
+        if (!answer || typeof answer !== 'object' || Object.keys(answer).length !== 1 || !config.profiles.some(profile => profile.id === answer.profileId)
+          || (config.selectedProfileId !== undefined && answer.profileId !== config.selectedProfileId)) throw Error('Unknown connection profile');
         const resolved = await config.adapters.resolveDetails(resource, answer.profileId, context(scope, 'details'));
         return admittedDetails(config, resource, resolved, answer.profileId);
       });

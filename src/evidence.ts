@@ -3,7 +3,9 @@ import type { InfraGraph } from './graph/types.ts';
 import { validateInfraGraph } from './graph/validation.ts';
 import type { RuntimeSnapshot } from 'footprintjs';
 import type { DeploymentChart } from './progress/chart.ts';
-import { formatSlice, keysReadFromExecutionTree, sliceForKey, stateAt, type ControlDependency } from 'foottrace';
+import { formatSlice, stateAt, type ControlDependency } from 'foottrace';
+import { inspectRecordedDependencies } from './diagnostics/recorded-slice.ts';
+export {verifyEvidenceTrace,type EvidenceTraceInput} from './evidence-trace.ts';
 
 export interface RunEvidence {
   version: 1;
@@ -39,8 +41,6 @@ export function replay(evidence: RunEvidence, commit?: number) {
 }
 
 export function backwalk(evidence: RunEvidence, key = 'failure') {
-  const slice = sliceForKey(evidence.snapshot.commitLog, key,
-    keysReadFromExecutionTree(evidence.snapshot.executionTree),
-    { controlDeps: id => evidence.controlDeps[id] });
+  const { slice } = inspectRecordedDependencies(evidence, key);
   return { slice, text: formatSlice(slice) };
 }

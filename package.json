@@ -5,6 +5,58 @@
   "type": "module",
   "description": "Compute, storage and network design with recorded infrastructure reconciliation",
   "exports": {
+    "./platform": {
+      "types": "./dist/src/platform/index.d.ts",
+      "import": "./dist/src/platform/index.js"
+    },
+    "./platform/access": {
+      "types": "./dist/src/platform-access/index.d.ts",
+      "import": "./dist/src/platform-access/index.js"
+    },
+    "./platform/bootstrap": {
+      "types": "./dist/src/platform-bootstrap/index.d.ts",
+      "import": "./dist/src/platform-bootstrap/index.js"
+    },
+    "./platform/workflow": {
+      "types": "./dist/src/platform-workflow/index.d.ts",
+      "import": "./dist/src/platform-workflow/index.js"
+    },
+    "./platform/kubernetes": {
+      "types": "./dist/src/platform-kubernetes/index.d.ts",
+      "import": "./dist/src/platform-kubernetes/index.js"
+    },
+    "./kubernetes-workload": {
+      "types": "./dist/src/kubernetes-workload/index.d.ts",
+      "import": "./dist/src/kubernetes-workload/index.js"
+    },
+    "./delivery": {
+      "types": "./dist/src/delivery/index.d.ts",
+      "import": "./dist/src/delivery/index.js"
+    },
+    "./delivery/workflow": {
+      "types": "./dist/src/delivery/node.d.ts",
+      "import": "./dist/src/delivery/node.js"
+    },
+    "./delivery/git": {
+      "types": "./dist/src/delivery-git/index.d.ts",
+      "import": "./dist/src/delivery-git/index.js"
+    },
+    "./integration/identity/github-delivery": {
+      "types": "./dist/integration/identity/github-delivery/index.d.ts",
+      "import": "./dist/integration/identity/github-delivery/index.js"
+    },
+    "./connection-profiles": {
+      "types": "./dist/src/connection-profiles/index.d.ts",
+      "import": "./dist/src/connection-profiles/index.js"
+    },
+    "./connection-profiles/node": {
+      "types": "./dist/src/connection-profiles/node.d.ts",
+      "import": "./dist/src/connection-profiles/node.js"
+    },
+    "./connection-profiles/limits": {
+      "types": "./dist/src/connection-profiles/limits.d.ts",
+      "import": "./dist/src/connection-profiles/limits.js"
+    },
     ".": {
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
@@ -24,6 +76,10 @@
     "./diagnostics": {
       "types": "./dist/src/diagnostics/explain.d.ts",
       "import": "./dist/src/diagnostics/explain.js"
+    },
+    "./diagnostics/recorded": {
+      "types": "./dist/src/diagnostics/recorded.d.ts",
+      "import": "./dist/src/diagnostics/recorded.js"
     },
     "./system": {
       "types": "./dist/src/system/index.d.ts",
@@ -92,6 +148,86 @@
     "./integration/identity/resource-flow-view": {
       "types": "./dist/integration/identity/resource-flow-view.d.ts",
       "import": "./dist/integration/identity/resource-flow-view.js"
+    },
+    "./pipeline": {
+      "types": "./dist/src/pipeline/index.d.ts",
+      "import": "./dist/src/pipeline/index.js"
+    },
+    "./pipeline/node": {
+      "types": "./dist/src/pipeline/node.d.ts",
+      "import": "./dist/src/pipeline/node.js"
+    },
+    "./releases": {
+      "types": "./dist/src/releases/index.d.ts",
+      "import": "./dist/src/releases/index.js"
+    },
+    "./releases/node": {
+      "types": "./dist/src/releases/node.d.ts",
+      "import": "./dist/src/releases/node.js"
+    },
+    "./releases/github": {
+      "types": "./dist/src/releases/github.d.ts",
+      "import": "./dist/src/releases/github.js"
+    },
+    "./checks": {
+      "types": "./dist/src/checks/index.d.ts",
+      "import": "./dist/src/checks/index.js"
+    },
+    "./checks/node": {
+      "types": "./dist/src/checks/node.d.ts",
+      "import": "./dist/src/checks/node.js"
+    },
+    "./triggers": {
+      "types": "./dist/src/triggers/index.d.ts",
+      "import": "./dist/src/triggers/index.js"
+    },
+    "./triggers/node": {
+      "types": "./dist/src/triggers/node.d.ts",
+      "import": "./dist/src/triggers/node.js"
+    },
+    "./integration/identity/release-pipeline": {
+      "types": "./dist/integration/identity/release-pipeline/index.d.ts",
+      "import": "./dist/integration/identity/release-pipeline/index.js"
+    },
+    "./migration": {
+      "types": "./dist/src/migration/index.d.ts",
+      "import": "./dist/src/migration/index.js"
+    },
+    "./migration/node": {
+      "types": "./dist/src/migration/node.d.ts",
+      "import": "./dist/src/migration/node.js"
+    },
+    "./migration/sqlite": {
+      "types": "./dist/src/migration-sqlite/index.d.ts",
+      "import": "./dist/src/migration-sqlite/index.js"
+    },
+    "./change-assessment": {
+      "types": "./dist/src/change-assessment/index.d.ts",
+      "import": "./dist/src/change-assessment/index.js"
+    },
+    "./change-assessment/node": {
+      "types": "./dist/src/change-assessment/node.d.ts",
+      "import": "./dist/src/change-assessment/node.js"
+    },
+    "./release-automation": {
+      "types": "./dist/src/release-automation/index.d.ts",
+      "import": "./dist/src/release-automation/index.js"
+    },
+    "./integration/identity/release-automation": {
+      "types": "./dist/integration/identity/release-automation/index.d.ts",
+      "import": "./dist/integration/identity/release-automation/index.js"
+    },
+    "./release-automation/node": {
+      "types": "./dist/src/release-automation/node.d.ts",
+      "import": "./dist/src/release-automation/node.js"
+    },
+    "./change-assessment/kubernetes": {
+      "types": "./dist/src/change-assessment/kubernetes.d.ts",
+      "import": "./dist/src/change-assessment/kubernetes.js"
+    },
+    "./deployment-strategy": {
+      "types": "./dist/src/deployment-strategy/index.d.ts",
+      "import": "./dist/src/deployment-strategy/index.js"
     }
   },
   "files": [
@@ -129,8 +265,8 @@
     "node": ">=24"
   },
   "dependencies": {
-    "footprintjs": "11.1.0",
-    "foottrace": "1.12.0",
+    "footprintjs": "12.1.0",
+    "foottrace": "1.15.0",
     "ldapts": "9.2.0",
     "yaml": "2.9.1"
   },

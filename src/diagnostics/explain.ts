@@ -1,7 +1,7 @@
 import { capabilityOrigins } from './origins.ts';
-import { sliceToJSON } from 'foottrace';
-import { backwalk, type RunEvidence } from '../evidence.ts';
+import type { RunEvidence } from '../evidence.ts';
 import { validateInfraGraph } from '../graph/validation.ts';
+import { inspectRecordedDependencies } from './recorded-slice.ts';
 
 function recordedFailure(evidence: RunEvidence): { resourceId: string; message: string; messageTruncated: boolean } | null {
   const failure: unknown = evidence.snapshot.sharedState.failure;
@@ -16,7 +16,7 @@ export function explainRun(evidence: RunEvidence, key = 'failure') {
   const failure = recordedFailure(evidence);
   const graph = evidence.graph === undefined ? undefined : validateInfraGraph(evidence.graph);
   if (graph && graph.name !== evidence.stack) throw new Error('Recorded graph belongs to another stack');
-  const explanation = backwalk(evidence, key);
+  const explanation = inspectRecordedDependencies(evidence, key).result;
   const memberships = graph?.memberships.filter(member => member.resourceId === failure?.resourceId) ?? [];
   const shown = memberships.slice(0, 32).map(member => {
     const boundary = graph!.boundaries.find(candidate => candidate.id === member.boundaryId)!;
@@ -33,7 +33,12 @@ export function explainRun(evidence: RunEvidence, key = 'failure') {
       ...(failure ? { capabilities: capabilityOrigins(graph, failure.resourceId) } : {}),
     } } : {}),
     // The native flat serialization retains missing/truncated/coverage notes and avoids DAG duplication.
-    dependencies: sliceToJSON(explanation.slice),
+    dependencies: explanation.dependencies!,
+    provenance: explanation.provenance,
+    readsCoverage: explanation.coverage,
+    dependencySummary: explanation.summary,
+    recordingStatus: explanation.status,
+    recordingLimitations: explanation.limitations,
     ...(evidence.traceStatus ? { capture: evidence.traceStatus } : {}),
     externalRootCause: 'not-established' as const,
     limitations: [

@@ -14,8 +14,11 @@ import { ensureNeoFlowForward } from './resource-flow-forward.ts';
 import { applyNeoFlowGraph } from './resource-flow-native.ts';
 import { neoFlowPhysicalId, neoFlowTargetScope, observeNeoFlowIdentity, type NeoFlowIdentityObservation } from './resource-flow-observation.ts';
 import { checkNeoFlowConnections, checkNeoFlowIdentity, verifyNeoResourceFlow, type NeoFlowVerificationOptions } from './resource-flow-verify.ts';
+import { assertNeoRegisteredConnection, assertNeoRegisteredConnectionReference, createNeoConnectionProfiles, neoRegisteredConnectionDetails,
+  type NeoConnectionProfileStores } from './connection-profiles.ts';
+import { applyNeoIdentityFault } from './apply-fault.ts';
 
-export interface NeoResourceFlowOptions { mode: 'create' | 'existing'; details?: 'automatic' | 'human'; id?: string }
+export interface NeoResourceFlowOptions { mode: 'create' | 'existing'; details?: 'automatic' | 'human'; profiles?: 'prepared' | 'user'; id?: string }
 /** Fixed composition/test seams. HTTP input never chooses a target, transport, command or secret. */
 export interface NeoResourceFlowDependencies extends NeoFlowVerificationOptions {
   loadTarget?: typeof loadIdentityTarget;
@@ -23,6 +26,8 @@ export interface NeoResourceFlowDependencies extends NeoFlowVerificationOptions 
   observe?: (target: IdentityTarget) => Promise<NeoFlowIdentityObservation>;
   discoveryFetch?: typeof fetch;
   ensureForward?: typeof ensureNeoFlowForward;
+  connectionProfileStores?: NeoConnectionProfileStores;
+  fault?: typeof applyNeoIdentityFault;
 }
 
 /** Neo is a consumer of the generic base workflow, with no Neo branches in its engine or stages. */
@@ -34,9 +39,16 @@ export async function createNeoResourceFlow(targetPath: string, options: NeoReso
   if (!['create', 'existing'].includes(options.mode) || (options.details !== undefined && !['automatic', 'human'].includes(options.details))) {
     throw Error('Choose Create or Find, with automatic or human connection details');
   }
+  if (options.profiles !== undefined && !['prepared', 'user'].includes(options.profiles)
+    || options.profiles === 'user' && options.mode !== 'existing') throw Error('User-entered profiles connect an existing identity service');
+  const userProfiles = options.profiles === 'user';
+  const connectionProfiles = userProfiles ? await createNeoConnectionProfiles(target, {
+    requestFetch: dependencies.discoveryFetch, stores: dependencies.connectionProfileStores,
+  }) : undefined;
   const input = options.details ?? 'automatic';
   const id = identifier(options.id ?? `neo-${options.mode}-${input}`, 'Neo resource flow');
   const directory = join(target.directory, 'resource-flows', id);
+  const lifecycleStore = new FileResourceFlowStore(directory);
   const scope = neoFlowTargetScope(target), resourceId = 'neo-identity-' + target.id;
   const acquisitionGraph = createNeoAcquisitionGraph(target), consumerGraph = createNeoConsumerGraph(target);
   const graph = createIdentityGraph(target, { includeNeo: true });
@@ -46,6 +58,12 @@ export async function createNeoResourceFlow(targetPath: string, options: NeoReso
   const find = async (context: ResourceFlowContext): Promise<ResourceHandle> => {
     const selected = await loader(targetPath);
     if (canonical(selected) !== canonical(target)) throw Error('The prepared Neo connection target changed');
+    if (connectionProfiles) {
+      if (!context.profileId) throw Error('Select an existing connection profile before finding its service');
+      // Resolve the user's saved address and credentials before discovery, without mutating the source.
+      const { profile } = await connectionProfiles.resolve(context.profileId);
+      neoRegisteredConnectionDetails(target, { id: resourceId, kind: 'identity-service', scope, physicalId: 'pending' }, profile);
+    }
     const observed = await observe(target);
     if (!observed.directory.running || !observed.provider.running) throw Error('The selected identity services are unavailable');
     await observation.observeSource(observed, context);
@@ -56,13 +74,21 @@ export async function createNeoResourceFlow(targetPath: string, options: NeoReso
     if (current.id !== resource.id || current.kind !== resource.kind || current.scope !== resource.scope || current.physicalId !== resource.physicalId) {
       throw Error('The selected identity services were replaced after acquisition');
     }
-    if (details) assertNeoFlowDetails(target, resource, details);
+    if (details) await assertDetails(resource, details, context.profileId);
+  };
+  const assertDetails = async (resource: ResourceHandle, details: ConnectionDetails, selectedProfileId?: string) => {
+    if (connectionProfiles) await assertNeoRegisteredConnection(connectionProfiles, target, resource, details, selectedProfileId);
+    else assertNeoFlowDetails(target, resource, details);
   };
   const workflow = new ResourceFlowWorkflow({
     definition: { id, resourceId, label: options.mode === 'create' ? 'Create identity and connect Neo' : 'Find identity and connect Neo',
       mode: options.mode, target: { id: target.id, scope },
-      configurationDigest: fingerprint({ graph: graph.digest, details: input, wrapper: 'neo-identity-resource-flow-v1' }) },
-    store: new FileResourceFlowStore(directory), profiles: [{ id: neoFlowProfileId(target), label: 'Prepared Neo sign-in service' }],
+      configurationDigest: fingerprint({ graph: graph.digest, details: input, wrapper: 'neo-identity-resource-flow-v1',
+        ...(userProfiles ? { profiles: 'user-v1' } : {}) }) },
+    store: lifecycleStore,
+    profiles: connectionProfiles ? async () => (await connectionProfiles.list()).map(profile => ({ id: profile.id, label: profile.label }))
+      : [{ id: neoFlowProfileId(target), label: 'Prepared Neo sign-in service' }],
+    ...(connectionProfiles ? { profileCatalogId: 'neo-existing-identity-' + target.id, requireProfileAtStart: true } : {}),
     adapters: {
       async create(context) {
         const selected = await loader(targetPath);
@@ -72,12 +98,18 @@ export async function createNeoResourceFlow(targetPath: string, options: NeoReso
         return { ...await find(context), receipt: { id: 'neo-identity-created', runId: result.runId, evidencePath: result.evidencePath } };
       },
       find,
-      async resolveDetails(resource, profileId) {
+      async resolveDetails(resource, profileId, context) {
+        if (connectionProfiles) {
+          if (profileId === undefined && input === 'human') return undefined;
+          const selectedId = profileId ?? context.profileId;
+          if (!selectedId || context.profileId && context.profileId !== selectedId) throw Error('The selected existing connection profile changed');
+          return neoRegisteredConnectionDetails(target, resource, (await connectionProfiles.resolve(selectedId)).profile);
+        }
         return resolveNeoFlowDetails(target, resource, profileId, input, dependencies.discoveryFetch);
       },
       validate,
       async connect(resource, details, context) {
-        assertNeoFlowDetails(target, resource, details);
+        await assertDetails(resource, details, context.profileId);
         const connected = createNeoConsumerGraph(target, details);
         if (connected.digest !== consumerGraph.digest) throw Error('Resolved connection details changed the pinned consumer configuration');
         observation.beginApply('connect', context);
@@ -114,27 +146,53 @@ export async function createNeoResourceFlow(targetPath: string, options: NeoReso
       throw error;
     }
   }
-  let rechecking = false;
+  let activeOperation: 'recheck' | 'fault' | undefined;
+  async function completedBinding() {
+    const state = await workflow.snapshot();
+    if (state.status !== 'passed' || !state.executionId || !state.resource || !state.details) throw Error('Complete this Neo resource flow before rechecking or testing an outage');
+    const selected = await loader(targetPath);
+    if (canonical(selected) !== canonical(target)) throw Error('The prepared Neo connection target changed');
+    const measured = await (dependencies.observe ?? (selected => observeNeoFlowIdentity(selected, { loadTarget: loader, allowStopped: true })))(target);
+    if (neoFlowPhysicalId(measured) !== state.resource.physicalId || state.resource.scope !== scope || state.resource.id !== resourceId) {
+      throw Error('The selected identity services were replaced after acquisition');
+    }
+    if (connectionProfiles) await assertNeoRegisteredConnectionReference(connectionProfiles, target, state.resource, state.details, state.selectedProfileId);
+    else assertNeoFlowDetails(target, state.resource, state.details);
+    return state;
+  }
   function recheck(kind: 'connections'): Promise<import('../../src/connections/types.ts').ConnectionRunResult>;
   function recheck(kind: 'identity'): Promise<import('../../src/identity/types.ts').IdentityRunResult>;
   async function recheck(kind: 'connections' | 'identity') {
-    if (rechecking) throw Error('A Neo observation check is already running');
-    rechecking = true;
+    if (activeOperation) throw Error('A Neo observation or outage test is already running');
+    activeOperation = 'recheck';
     try {
-      const state = await workflow.snapshot();
-      if (state.status !== 'passed' || !state.executionId || !state.resource || !state.details) throw Error('Complete this Neo resource flow before rechecking');
-      const context = { executionId: state.executionId, definitionDigest: state.definitionDigest, operationId: fingerprint(state.executionId) };
-      const selected = await loader(targetPath);
-      if (canonical(selected) !== canonical(target)) throw Error('The prepared Neo connection target changed');
-      const measured = await (dependencies.observe ?? (selected => observeNeoFlowIdentity(selected, { loadTarget: loader, allowStopped: true })))(target);
-      if (neoFlowPhysicalId(measured) !== state.resource.physicalId || state.resource.scope !== scope || state.resource.id !== resourceId) {
-        throw Error('The selected identity services were replaced after acquisition');
-      }
-      assertNeoFlowDetails(target, state.resource, state.details);
+      const state = await completedBinding();
+      const context = { executionId: state.executionId!, definitionDigest: state.definitionDigest, operationId: fingerprint(state.executionId) };
       return await (kind === 'connections' ? checkNeoFlowConnections : checkNeoFlowIdentity)(target, directory, dependencies, checkObserver(context, 'recheck'));
-    } finally { await observation.flush(); rechecking = false; }
+    } finally { try { await observation.flush(); } finally { activeOperation = undefined; } }
+  }
+  async function fault(action: 'provider-down' | 'provider-restore') {
+    if (activeOperation) throw Error('A Neo observation or outage test is already running');
+    activeOperation = 'fault';
+    try {
+      const state = await completedBinding();
+      const result = await (dependencies.fault ?? applyNeoIdentityFault)(target, action, { loadTarget: loader });
+      // A host action and its following observations are separate runs. Preserve correlation without inventing a causal edge.
+      let correlationCaptureError: string | undefined;
+      try {
+        await lifecycleStore.writeJson(join(directory, 'fault-' + result.result.runId + '.json'), {
+          version: 1, kind: 'owned-identity-fault-reference', action, resourceId: result.resourceId,
+          executionId: state.executionId, definitionDigest: state.definitionDigest, selectedProfileId: state.selectedProfileId ?? null,
+          acquiredPhysicalId: state.resource!.physicalId, ok: result.result.ok,
+          receipt: { id: 'neo-owned-' + action, runId: result.result.runId, evidencePath: result.result.evidencePath },
+          attribution: 'Recorded owned test action; subsequent checks independently measure symptoms. External root cause is not established by cross-run ordering.',
+        });
+      } catch { correlationCaptureError = 'The flow correlation reference could not be retained. The native action receipt remains authoritative.'; }
+      return { ...result, correlationCaptureError };
+    } finally { activeOperation = undefined; }
   }
   await observation.attach(workflow, recorder);
   return { workflow, observation, recheckConnections: () => recheck('connections'), recheckIdentity: () => recheck('identity'),
-    target, directory, graph, acquisitionGraph, consumerGraph, profileId: neoFlowProfileId(target) };
+    pauseIdentityService: () => fault('provider-down'), restoreIdentityService: () => fault('provider-restore'),
+    target, directory, graph, acquisitionGraph, consumerGraph, profileId: neoFlowProfileId(target), connectionProfiles };
 }

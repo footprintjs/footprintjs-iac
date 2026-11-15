@@ -31,6 +31,12 @@ await command('docker', ['build', '-t', 'footprint-iac/identity-ldap:local', '-f
 await command('docker', ['pull', 'quay.io/keycloak/keycloak:26.8.2'], 180_000);
 target.images.ldapImage = await command('docker', ['image', 'inspect', '--format', '{{.Id}}', 'footprint-iac/identity-ldap:local']);
 target.images.providerImage = await command('docker', ['image', 'inspect', '--format', '{{.Id}}', 'quay.io/keycloak/keycloak:26.8.2']);
+// Docker can discard an untagged manifest when a later fixture rebuilds the mutable local tag.
+// Retain exactly the immutable images required for future ownership/configuration admission.
+for (const [role, image] of [['ldap', target.images.ldapImage], ['provider', target.images.providerImage]]) {
+  if (!/^sha256:[a-f0-9]{64}$/.test(image!)) throw Error('Prepared identity image has no immutable identity');
+  await command('docker', ['tag', image!, `footprint-iac/identity-${role}:sha256-${image!.slice(7)}`]);
+}
 await writeIdentityFixture(target);
 const hash = createHash('sha256');
 for (const path of ['ldap/slapd.conf', 'ldap/seed.ldif', 'provider/neo-realm.json', 'provider/ldap.crt', 'provider.env']) hash.update(await readFile(resolve(directory, path)));

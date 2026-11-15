@@ -11,7 +11,7 @@ export interface ConnectionDetails {
   credentialRef?: string; trustRef?: string;
 }
 export interface VerificationResult { ok: boolean; checks: { id: string; passed: boolean }[]; receipts?: FlowReceipt[] }
-export interface ResourceFlowContext { executionId: string; operationId: string; definitionDigest: string }
+export interface ResourceFlowContext { executionId: string; operationId: string; definitionDigest: string; profileId?: string }
 export interface ResourceFlowAdapters {
   create?(context: ResourceFlowContext): Promise<ResourceHandle>;
   /** Read-only identity lookup. Also revalidates a created handle before connection and after a pause. */
@@ -36,9 +36,12 @@ export interface ResourceFlowState {
   id: string; resourceId: string; label: string; mode: 'create' | 'existing'; target: ResourceFlowTarget; configurationDigest: string;
   executionId: string | null; status: 'idle' | 'running' | 'paused' | 'passed' | 'failed' | 'incomplete';
   stages: ResourceFlowStage[]; events: ResourceFlowEvent[]; segments: ResourceFlowSegment[];
+  /** Immutable connection profile selected before acquisition. Contains no credential values. */
+  selectedProfileId?: string;
   resource?: ResourceHandle; details?: ConnectionDetails; connection?: FlowReceipt; verification?: VerificationResult;
   pause?: { token: string; prompt: string; profiles: ConnectionProfileChoice[] };
   error?: string; failure?: ResourceFlowFailure;
 }
 export interface ResourceFlowResumeInput { pauseToken: string; profileId: string }
+export interface ResourceFlowStartInput { profileId: string }
 export const RESOURCE_FLOW_EVENT = 'iac.resource-flow.progress';

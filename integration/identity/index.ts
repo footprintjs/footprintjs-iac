@@ -9,4 +9,6 @@ export type { NeoIdentityFaultAction } from './fault-graph.ts';
 export { createNeoResourceFlow, type NeoResourceFlowOptions, type NeoResourceFlowDependencies } from './resource-flow.ts';
 export { createNeoAcquisitionGraph } from './create-acquisition-graph.ts';
 export { createNeoConsumerGraph } from './create-consumer-graph.ts';
+export { createNeoConnectionProfiles, neoExistingIdentityProfileAdapter, NEO_EXISTING_IDENTITY_ADAPTER,
+  type NeoConnectionProfileStores, type NeoConnectionProfileOptions } from './connection-profiles.ts';
 export type * from './resource-flow-view.ts';

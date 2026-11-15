@@ -24,8 +24,10 @@ function readSource(input: unknown): MasterSource {
   let repository: string | undefined;
   if (row.repository !== undefined) {
     repository = publicText(row.repository, 'source repository');
-    const url = new URL(repository);
-    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw Error('Repository must be a credential-free HTTP(S) URL');
+    if(!/^source-sha256:[a-f0-9]{64}$/.test(repository)){
+      const url = new URL(repository);
+      if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw Error('Repository must be a credential-free HTTP(S) URL or opaque local source identity');
+    }
   }
   const hash = (value: unknown) => { if (typeof value !== 'string' || !/^[a-f0-9]{40,64}$/.test(value)) throw Error('Invalid source identity'); return value; };
   return { ...(repository === undefined ? {} : { repository }), ...(row.commit === undefined ? {} : { commit: hash(row.commit) }),

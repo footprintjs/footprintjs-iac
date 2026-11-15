@@ -1,8 +1,174 @@
 # Validation results
 
-Current local library: **footprint-iac 0.4.0**, using pinned **FootPrint 11.1.0** and **Foottrace 1.12.0**. Capability, binding, retention, graph, concurrency, recovery, recorder-backed synthesis and live progress checks passed. Historical Neo integration and clean-clone results are retained below with their original scope.
+Current local library: **footprint-iac 0.4.0**, using pinned **FootPrint 12.1.0** and **Foottrace 1.15.0**. Capability, binding, retention, graph, concurrency, recovery, recorder-backed synthesis and live progress checks passed. Historical Neo integration and clean-clone results are retained below with their original scope.
 
 These are recorded results from the development laptop, not a claim that a fresh clone has already run them. Generated `.artifacts/` evidence, kubeconfig, state and logs are private local outputs and are intentionally excluded from Git. Reproduce the checks directly on your laptop with the [sharing guide](docs/SHARING.md). Automatic GitHub CI triggers are disabled for now; the saved workflow is manual-only. The real Neo integration runs directly through the local IaC command and requires a separately authorized private Neo checkout and local Docker/kind.
+
+## Platform discovery and bootstrap — 2026-11-14
+
+The final library typecheck, **568 tests (0 failed, 0 skipped)** and build pass.
+This includes 67 new platform tests; earlier core counts below describe earlier
+working-copy states. No Lens or Neo source changes were part of this step.
+
+The new tests exercise local/SSH access admission, extensible tool observations,
+multi-host discovery, physical identity checks, capacity/freshness/version
+assessment, custom strategy admission, per-action durable intent, one-use
+revalidation, unknown-effect retention, native pause/reopen/resume, separate
+immutable profiles, private errors, and read-only replay/backwalk. Valid FQDN
+Kubernetes node names are admitted without loosening namespace/path selectors.
+
+Additional local acceptance used a disposable Linux SSH server with generated
+test-only keys. Actual SSH discovery measured its cgroup CPU/memory limits,
+default read-only behavior refused a write, a wrong machine identity stopped a
+fixture effect, the correct identity permitted it, and a changed trust file was
+refused. The test container and temporary private keys were removed afterward.
+
+A fresh, read-only Find → Connect → Verify run used the already-owned local
+Kubernetes v1.37.0 cluster. It measured actual server version, API health,
+declared ready nodes, system pods and CNI controller rollout readiness. It ran
+zero installer actions. Reopening its native records made zero provider calls.
+This does not establish application data-plane traffic or production readiness.
+
+The controlled example in `examples/platform-bootstrap.ts` exercises the
+concrete kubeadm/preparation adapters through prepare → init → CNI → native human
+pause → reopened resume → connection verification, followed by Find with no host
+inventory or installer actions. Seven native captures and causal backwalk proofs
+are retained. Installer execution in this example is explicitly controlled; it
+does not create a real Kubernetes cluster or change a host system.
+
+Local evidence is in `outputs/platform-bootstrap/` in the surrounding workspace.
+See [platform composition](docs/platform-bootstrap.md) and the
+[adapter contracts](docs/platform-bootstrap-adapters.md) for reproduction and
+scope. Distribution-specific package/runtime setup requires an approved pinned
+site recipe and measured preparation probe. Newly created cluster credentials
+and first identity registration require a private publication adapter; the
+built-in pinned HTTP inspector targets already registered clusters. Rahul's
+server was not contacted. No CI, commit, push or package publication was run.
+
+## Assessed Neo release automation — 2026-11-14
+
+The current working copies pass **486 core tests and 213 Lens tests: 699 total**,
+with typechecks and builds passing. Historical counts below describe their
+earlier validation stages. No GitHub Actions, CI, push, publication or merge was
+performed for this follow-up.
+
+Normal Neo release planning now runs recorded provider assessment, binds the
+review to its sealed result and revalidates before application effects.
+Observation, capability evidence, policy choice, common safeguard admission and
+final decision have separate native stages and recorded reads for backwalk.
+Unknown or unsupported changes refuse the candidate before apply; this does not
+predict every runtime failure or establish arbitrary database compatibility.
+
+A real manual Lens upgrade built one reviewed GitHub source revision and passed
+through three distinct local Neo targets in order: dev `5b10aad5`, gamma
+`73094b59`, prod `1e234ba6`. Each stage updated `neo-app` once, retained five no-op
+resources, and passed three live connection checks plus seven identity/access
+assertions. All stages consumed the same prepared package. This acceptance
+exercises the reviewed v2 source through a genuine image/Deployment update; it
+does not claim a newly published remote application release or new app feature.
+
+At the time of the repository check, Neo had no published GitHub releases; its
+release entry was a draft. Live automatic publication-to-deployment acceptance
+was therefore not performed. Controlled catalog tests exercise new published
+source detection, one build, ordered three-stage initiation, backlog exclusion,
+manual initiation, deduplication, durable gates and retained failure/uncertainty.
+The running host can discover future published releases and initiate its fixed
+pipeline policy; it never publishes a release itself. **Refresh releases** is
+discovery-only; **Deploy version** initiates the selected source build and
+deployment. Initial `observe` policy leaves the existing backlog alone.
+
+Background-browser acceptance confirmed the three-stage rollout, Alice allowed
+and Bob authenticated but denied. The native preflight viewer exposes the
+separate observation, capability, policy, safeguard and decision stages. Lens
+fits the deployment, running-system graph and checks at 1280×720 without vertical
+scrolling. Restarting the host restores Prod, its recorded three connection and
+seven access checks, and its matching preflight recording without another build
+or deployment. Original measurement times are preserved.
+
+Independent replay verified complete captures with no unread entries or gaps,
+36 backwalk queries across the six preflight runs, 18 retained adapter identities
+and 12 actual Kubernetes UIDs matching preflight source hashes. The protected
+original snapshot is unchanged. Private measured reports, scripts and screenshots
+remain under `outputs/neo-release-automation/` in the development workspace.
+
+The targets are local stage fixtures, not configured remote production.
+Neo rollback remains disabled in every stage because its local adapter has no
+verified restoration contract. Neo's current application storage uses memory
+unless MSSQL is configured; this infrastructure preflight neither invents a
+database migration nor proves data/schema or live-LLM compatibility. No real
+Neo data migration was performed. See the [automation contracts](docs/release-automation.md),
+[Neo consumer](integration/identity/release-automation/README.md), and sibling
+Lens `docs/neo-release-automation.md` setup guide.
+
+## Change assessment and guarded migration follow-up — 2026-11-14
+
+The follow-up working copies pass **463 core tests and 199 Lens tests: 662 total**.
+The earlier suite counts below remain the results of their respective validation stages.
+
+Read-only validation against the real owned Kubernetes Deployment distinguished an
+image update from an immutable-selector replacement requirement. The assessment
+left its UID, resourceVersion and spec unchanged; no replacement was executed.
+
+The opt-in generic migration workflow and real local SQLite adapter cover API
+backup, exact retained user/conversation/message data, a human cutover gate,
+reopening in a separate Node process, actual consumer reads/writes, guarded
+pre-switch write resumption and refusal of blind rollback after new writes.
+Background-browser acceptance then ran the real SQLite example through review,
+preview, preparation, a durable human approval gate and a full host restart.
+The gate reopened without repeating backup/create/transfer effects. A separate
+consumer write was rejected while fenced; approval completed the switch,
+application verification, source retention and write resumption. Every original
+user/conversation/message field matched, and a new application write reached
+schema v2 while the retained original stayed unchanged.
+
+A separate real corrupted-data attempt failed verification before cutover.
+Lens kept the original active and exposed **Resume original app**. Explicit
+recovery restored writes on the original, preserved its full records and accepted
+a new application write. Seven native JSONL captures across both attempts and
+the Kubernetes merge-patch assessment replay completely with no unread entries
+or gaps. The development workspace retains the measured summary and screenshots
+under `outputs/stateful-migration/`; these private outputs are not distributed.
+
+This uses an explicit cooperating single-host fixture; no real Neo database was
+migrated. No push, publication, merge, CI or sharing was performed for this
+follow-up. See [change assessment](docs/change-assessment.md),
+[guarded migration](docs/migration.md), and [SQLite details](docs/sqlite-migration.md).
+
+## Release strategies and real Neo acceptance — 2026-11-14
+
+The release-acceptance working copies at that stage passed **422 core tests and
+189 Lens tests**, typechecks and builds. Coverage includes immutable source/artifact manifests, reviewed
+source pins, open strategy/adapter registries, capability refusal before
+effects, manual promotion, verified application recovery, independent target
+locks, native replay integrity, real localhost HTTP/command checks, durable
+trigger dispatch and the Neo consumer. Optional Playwright reporter/CLI
+contracts were tested without running a real Playwright browser.
+
+A real disposable Neo deployment then consumed a recorded prepared package:
+one `neo-app` update, five unchanged resources, all six physical resource
+identities retained, three actual connection checks and seven login/access
+checks passed. Browser verification independently confirmed Alice allowed and
+Bob denied. Five native JSONL captures (build, pipeline, resource deployment,
+connections and access) replay completely without unread entries or gaps.
+Simple mode fits the timeline and system scene at 1280×720 and opens native
+recording/resource details on demand.
+
+This test keeps the previously tested Neo v2 source commit and adds a package
+metadata label through a distinct recorded build recipe. It exercises an actual
+image/Deployment update; it does not claim a new application feature release.
+The live acceptance uses one local environment. Multiple environments,
+progressive strategies and application recovery are covered by native contract
+tests. Neo's current local adapter exposes direct updates with rollback
+disabled. This Neo consumer does not perform resource replacement or migrate
+its persistent data; the separate local SQLite migration is described above.
+A hosted multi-customer control plane is not implemented. The trigger runtime
+needs an operating host to dispatch due ticks; selecting a schedule does not
+start a daemon. CI, push, publication and merge were not performed.
+
+Use the [Neo release handoff](docs/NEO-RELEASE-PIPELINE-HANDOFF.md) to reproduce
+with this candidate or later reviewed commits. The development workspace keeps
+its measured summary and screenshots under `outputs/release-pipeline/`; those
+private runtime files are separate from the library distribution.
 
 ## Framework
 
@@ -208,3 +374,40 @@ The test uses seeded SQLite data and the app's scripted model. It did not exerci
 This remains a single-machine prototype with four Kubernetes resource kinds. Execution defaults to one resource at a time; configured bounded batches can execute eligible resource operations concurrently, and pruning remains sequential. Cross-run/tool causal stitching, provider-output interpolation, fine-grained provider subflows, distributed state, arbitrary providers and automatic rollback are not implemented. Boundary groups are descriptive; required enforcement is rejected until a supported lowering/verifier exists. Kubernetes field/list removal and automatic replacement are explicitly unsupported.
 
 The original test cluster was stopped after an earlier session and later recreated for the high-level review above. A localhost URL and an old saved report do not establish present health on another laptop. Use the [portable setup and test instructions](docs/SHARING.md) to create a separate `footprint-iac-review` cluster, generate fresh evidence and obtain that laptop's actual review URL.
+
+## Recorder dependency update — 2026-11-12
+
+The IaC host now pins `footprintjs@12.1.0` and `foottrace@1.15.0`, upgraded from `11.1.0` and `1.12.0`. Version 12.0.0 was also validated before 12.1.0 appeared during this work; its evidence is retained separately. Neo remains a separate consumer application. Its source and application dependencies were not changed by this host update.
+
+Three dependency contracts pass through the public IaC evidence readers: a delayed reader identifies the producer of the value it actually read; a merged configuration retains its original writer; and an ambiguous read window preserves possible sources and an uncertainty note. The matching controlled examples against both published FootTrace versions reproduce the earlier incorrect or missing attribution. These examples establish those specific fixes, rather than a general guarantee of external root-cause identification. See the [1.13](https://github.com/footprintjs/foottrace/releases/tag/v1.13.0) and [1.14](https://github.com/footprintjs/foottrace/releases/tag/v1.14.0) release notes.
+
+An additional isolated FootPrint comparison copies a harmless synthetic hidden inner object into a public wrapper under the same redaction policy. Version 11.1.0 exposes the canary in the served record; 12.1.0 masks it while keeping neighboring public data readable. Both runs produce the same business output. This validates the engine's redaction fix; connection-profile credentials already remain outside chart scope, so it is not evidence of an existing integration leak.
+
+The unchanged Find → human pause → reopened workflow → resume → Connect → Verify benchmark passes under both dependency pairs. Each version retains five commits, 23 provenance-bearing writes and 7,477 JSONL bytes, with no capture gaps. Four earlier real Neo records also replay and backwalk under the new reader without changing the original files. Seven warmed timing samples per version are descriptive only: the upgraded samples overlapped other project checks, so neither their workflow-time increase nor their query-time decrease establishes a performance change. No real deployment speed claim is made.
+
+The released FootPrint 12.1 artifact still emits linked execution trees in the measured workflow. FootTrace 1.15 can also read chain-form trees; its release wording about the producer's format does not match the observed published engine. Original recordings retain their native shape. Optional read-source capture and rich cause adapters already existed in the baseline and were not enabled as part of this dependency update. Version 12 provides optional closure/extent capture and recorder reliability fixes; these are separate from the measured serial-workflow results. See the [FootPrint 12 release](https://github.com/footprintjs/footPrint/releases/tag/v12.0.0). Version 12.1 additionally fixes control attribution after a loop and adds default-branch label metadata. The current Neo charts do not contain a loop, so this is a recorder capability improvement rather than an observed change in Neo's behavior. See the [12.1 release](https://github.com/footprintjs/footPrint/releases/tag/v12.1.0).
+
+The local workspace retains reproducible scripts, raw samples, package archives, hashes and compatibility reports in `outputs/dependency-upgrade/`. These generated artifacts are separate from the library distribution.
+
+The final dependency pair passes 345 IaC tests and 153 Lens tests, typechecks and builds. Real Neo verification through the Lens server API confirms three connections, seven login/access checks, human pause and host restart. A retained real pause created under 11.1.0/1.12.0 also resumes successfully under 12.1.0/1.15.0 with the same execution, selected profile and physical resource; the earlier native record and trace remain byte-identical. These live checks reuse existing resources and do not claim a fresh deployment or browser recording.
+
+## Common deployment strategies — 2026-11-14
+
+The common registry and controller interface support registered systemd and
+Kubernetes adapters. Systemd reuses InfraEngine, Master and native check
+recordings; coupled units use one service-group transaction. Its generic Linux
+host adapter measures the machine, unit fragments, configuration files and actual
+running process marker before admitting effects. Kubernetes preserves the
+existing guarded controller.
+
+The full local library suite passes **588 tests**, with typecheck and build.
+Focused cases include no-op, configuration-only updates on the same physical
+ledger, changed targets and service invocations, missing required configuration,
+unknown effects, changed check catalogs and retained evidence from a different
+target. Narrow neutralizations reproduced the corresponding failures and were
+restored. Host and strategy registration are trusted code; neither public graph
+data nor a strategy ID can supply executable commands.
+
+These controlled checks establish the library contracts. Real Neo systemd and
+Kubernetes acceptance is run separately by the consuming application; it does not
+establish readiness of an unregistered production server.

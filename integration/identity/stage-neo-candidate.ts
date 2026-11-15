@@ -5,20 +5,28 @@ import type { IdentityTarget } from './target.ts';
 import { validateIdentityTarget } from './validate-target.ts';
 
 /** Stage desired images for review; publishing an applied target is a later action. */
-export async function stageNeoCandidate(target: IdentityTarget, sourceTree: string, metadata: object, canonicalBytes: string, root: string) {
+export async function stageNeoCandidate(target: IdentityTarget, sourceTree: string, metadata: object, canonicalBytes: string, root: string, candidateScope?: string) {
   validateIdentityTarget(target, root);
   if (!/^[a-f0-9]{40}$/.test(sourceTree)) throw Error('Expected an exact reviewed source tree');
+  if (candidateScope !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(candidateScope)) throw Error('Expected a safe delivery execution scope');
   if (await readFile(join(target.directory, 'target.json'), 'utf8') !== canonicalBytes) {
     throw Error('The applied target changed while the candidate images were building; review it again');
   }
-  const parent = join(target.directory, 'candidates'), directory = join(parent, sourceTree);
+  const parent = join(target.directory, 'candidates');
   await mkdir(parent, { mode: 0o700, recursive: true });
   if ((await lstat(parent)).isSymbolicLink()) throw Error('Candidate directory must not be a symbolic link');
+  const scopedParent = candidateScope === undefined ? parent : join(parent, candidateScope);
+  if (candidateScope !== undefined) {
+    await mkdir(scopedParent, { mode: 0o700, recursive: true });
+    if ((await lstat(scopedParent)).isSymbolicLink()) throw Error('Candidate scope must not be a symbolic link');
+  }
+  const directory = join(scopedParent, sourceTree);
   try { await lstat(directory); throw Error('This reviewed source already has a staged candidate'); }
   catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-  const staging = await mkdtemp(join(parent, '.building-'));
+  const staging = await mkdtemp(join(scopedParent, '.building-'));
   const targetPath = join(directory, 'target.json');
-  const receipt = { ...metadata, canonicalTargetSha256: createHash('sha256').update(canonicalBytes).digest('hex') };
+  const receipt = { ...metadata, ...(candidateScope === undefined ? {} : { candidateScope }),
+    canonicalTargetSha256: createHash('sha256').update(canonicalBytes).digest('hex') };
   try {
     await writeFile(join(staging, 'source-review.json'), JSON.stringify(receipt, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
     await writeFile(join(staging, 'target.json'), JSON.stringify(target, null, 2) + '\n', { mode: 0o600, flag: 'wx' });

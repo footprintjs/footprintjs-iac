@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import type { Json, JsonObject, Observation, ProviderContext, Resource, ResourceAdapter } from '../types.ts';
 import { fingerprint } from '../util.ts';
+import { canMigrateKubernetesBootstrap } from './kubernetes-bootstrap.ts';
 
 export interface CommandResult { stdout: string; stderr?: string }
 export interface CommandOptions { input?: string; timeoutMs: number }
@@ -64,48 +65,6 @@ function declaredProjection(actual: Json | undefined, desired: Json): Json {
   const result: JsonObject = {};
   for (const [key, value] of Object.entries(desired)) result[key] = declaredProjection(object(actual)[key], value);
   return result;
-}
-
-/** A conservative field-set overlap check. Unknown/list field encodings refuse migration. */
-function fieldsOverlap(fields: Json | undefined, desired: Json | undefined): boolean {
-  if (desired === undefined) return false;
-  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return true;
-  const entries = Object.entries(fields);
-  if (entries.length === 0) return true;
-  for (const [key, child] of entries) {
-    if (key === '.') continue; // Existing granular-map presence does not change on this apply.
-    if (!key.startsWith('f:')) return true;
-    const name = key.slice(2);
-    if (desired === null || typeof desired !== 'object' || Array.isArray(desired)) return true;
-    if (Object.hasOwn(desired, name) && fieldsOverlap(child, desired[name])) return true;
-  }
-  return false;
-}
-
-/**
- * A POST/create manager is an Update manager, distinct from the same name's Apply manager.
- * Only migrate our own bootstrap ownership; never force a foreign manager's requested fields.
- * The apply body also carries the exact observed UID/resourceVersion, protecting this check
- * from any intervening mutation (including a new field manager or a same-name replacement).
- */
-function canMigrateBootstrap(live: JsonObject, desired: JsonObject): boolean {
-  const managed = object(live.metadata).managedFields;
-  if (!Array.isArray(managed) || managed.length === 0) return false;
-  let ownBootstrap = false;
-  for (const item of managed) {
-    const entry = object(item);
-    if (typeof entry.manager !== 'string' || !['Apply', 'Update'].includes(String(entry.operation))
-      || entry.fieldsType !== 'FieldsV1' || !entry.fieldsV1 || typeof entry.fieldsV1 !== 'object'
-      || Array.isArray(entry.fieldsV1)) return false;
-    const mainResource = entry.subresource === undefined || entry.subresource === '';
-    if (entry.manager === manager) {
-      if (mainResource && entry.operation === 'Update' && entry.apiVersion === live.apiVersion) ownBootstrap = true;
-      continue;
-    }
-    // Status writers sometimes also own metadata annotations. Check their actual field set.
-    if (entry.subresource !== 'status' || fieldsOverlap(entry.fieldsV1, desired)) return false;
-  }
-  return ownBootstrap;
 }
 
 interface Target { kind: string; name: string; namespace?: string; path: string }
@@ -256,7 +215,7 @@ export class KubernetesAdapter implements ResourceAdapter {
       try {
         await this.command(args, target, body);
       } catch (error) {
-        if (!(error instanceof Error) || !/\bconflicts?\b/i.test(error.message) || !canMigrateBootstrap(live, desired)) throw error;
+        if (!(error instanceof Error) || !/\bconflicts?\b/i.test(error.message) || !canMigrateKubernetesBootstrap(live, desired, manager)) throw error;
         // Bounded one-time Update→Apply migration. Stale preconditions or any foreign
         // main-resource ownership make this fail rather than taking another writer's work.
         await this.command([...args, '--force-conflicts=true'], target, body);

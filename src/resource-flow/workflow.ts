@@ -5,15 +5,20 @@ import { controlDepRecorder } from 'footprintjs/trace';
 import { fileSink } from 'footprintjs/sinks';
 import { canonical, fingerprint } from '../util.ts';
 import { createResourceFlowChart } from './create-resource-flow-chart.ts';
-import { readConnectionDetails, readConnectionProfileChoices, readFlowReceipt, readResourceFlowDefinition,
-  readResourceFlowState, readResourceHandle, readVerificationResult, readResourceFlowResumeInput, readResourceFlowFailure } from './data.ts';
+import { readConnectionDetails, readFlowReceipt, readResourceFlowDefinition,
+  readResourceFlowState, readResourceHandle, readVerificationResult, readResourceFlowResumeInput, readResourceFlowStartInput, readResourceFlowFailure } from './data.ts';
+import { ResourceFlowProfileCatalog, type ResourceFlowProfiles } from './profile-catalog.ts';
 import type { ResourceFlowScope } from './scope.ts';
 import { FileResourceFlowStore, type StoredResourceFlow } from './store.ts';
 import { RESOURCE_FLOW_EVENT, type ConnectionProfileChoice, type ResourceFlowAdapters, type ResourceFlowDefinition,
-  type ResourceFlowEvent, type ResourceFlowSegment, type ResourceFlowStageId, type ResourceFlowState } from './types.ts';
+  type ResourceFlowEvent, type ResourceFlowSegment, type ResourceFlowStageId, type ResourceFlowStartInput, type ResourceFlowState } from './types.ts';
 
 export interface ResourceFlowOptions {
-  definition: ResourceFlowDefinition; store: FileResourceFlowStore; profiles: readonly ConnectionProfileChoice[];
+  definition: ResourceFlowDefinition; store: FileResourceFlowStore; profiles: ResourceFlowProfiles;
+  /** Trusted catalog identity, required for dynamic catalogs. Profile IDs must be immutable. */
+  profileCatalogId?: string;
+  /** Require a saved profile before any Create/Find adapter can execute. */
+  requireProfileAtStart?: boolean;
   adapters: ResourceFlowAdapters; recorders?: readonly CombinedRecorder[];
 }
 function initialState(definition: ResourceFlowDefinition, definitionDigest: string): ResourceFlowState {
@@ -26,30 +31,37 @@ function initialState(definition: ResourceFlowDefinition, definitionDigest: stri
 export class ResourceFlowWorkflow {
   private readonly definition: ResourceFlowDefinition;
   private readonly definitionDigest: string;
-  private readonly profiles: ConnectionProfileChoice[];
+  private readonly catalog: ResourceFlowProfileCatalog;
   private readonly options: ResourceFlowOptions;
   private readonly listeners = new Set<(state: ResourceFlowState) => void>();
   constructor(options: ResourceFlowOptions) {
     this.definition = readResourceFlowDefinition(options.definition);
-    this.profiles = readConnectionProfileChoices(options.profiles);
-    this.definitionDigest = fingerprint({ definition: this.definition, profiles: this.profiles });
+    this.catalog = new ResourceFlowProfileCatalog(options.profiles, options.profileCatalogId);
+    if (options.requireProfileAtStart !== undefined && typeof options.requireProfileAtStart !== 'boolean') throw Error('Choose whether acquisition requires a connection profile');
+    this.definitionDigest = fingerprint({ definition: this.definition, ...this.catalog.identity,
+      ...(options.requireProfileAtStart ? { requireProfileAtStart: true } : {}) });
     if (!options.adapters || ['find', 'resolveDetails', 'validate', 'connect', 'verify'].some(key => typeof options.adapters[key as keyof ResourceFlowAdapters] !== 'function')
       || (this.definition.mode === 'create' && typeof options.adapters.create !== 'function')) throw Error('Configure the required resource flow adapters');
-    this.options = { ...options, definition: this.definition, profiles: this.profiles,
+    this.options = { ...options, definition: this.definition,
       adapters: Object.fromEntries(['create', 'find', 'resolveDetails', 'validate', 'connect', 'verify'].flatMap(key => {
         const value = options.adapters[key as keyof ResourceFlowAdapters]; return value ? [[key, value.bind(options.adapters)]] : [];
       })) as unknown as ResourceFlowAdapters };
   }
+  get requiresProfileAtStart(): boolean { return this.options.requireProfileAtStart === true; }
   async snapshot(): Promise<ResourceFlowState> { return readResourceFlowState((await this.load()).state); }
   subscribe(listener: (state: ResourceFlowState) => void): () => void {
     if (typeof listener !== 'function') throw Error('A resource flow listener must be callable');
     this.listeners.add(listener); return () => { this.listeners.delete(listener); };
   }
-  start(): Promise<ResourceFlowState> {
+  start(input?: ResourceFlowStartInput): Promise<ResourceFlowState> {
     return this.options.store.withLock(async () => {
+      const selected = input === undefined ? undefined : readResourceFlowStartInput(input).profileId;
+      if (this.options.requireProfileAtStart && !selected) throw Error('Select a saved connection profile before finding the resource');
+      if (selected && !(await this.catalog.list()).some(profile => profile.id === selected)) throw Error('The selected connection profile is unavailable');
       const envelope = await this.load();
       if (envelope.state.status !== 'idle') throw Error('This resource flow already started; use its exact pending pause or inspect its retained result');
       const state = structuredClone(envelope.state); state.executionId = randomUUID(); state.status = 'running';
+      if (selected) state.selectedProfileId = selected;
       await this.options.store.save({ version: 1, state }); this.publish(state);
       return this.execute(state);
     });
@@ -60,7 +72,9 @@ export class ResourceFlowWorkflow {
       const envelope = await this.load(), state = structuredClone(envelope.state), checkpoint = envelope.checkpoint;
       if (!input || typeof input !== 'object' || Object.keys(input).sort().join(',') !== 'pauseToken,profileId'
         || !/^[a-f0-9]{64}$/.test(input.pauseToken) || state.status !== 'paused' || state.pause?.token !== input.pauseToken
-        || !this.profiles.some(profile => profile.id === input.profileId) || !checkpoint) throw Error('The pending pause or selected connection profile is stale');
+        || !state.pause.profiles.some(profile => profile.id === input.profileId)
+        || (state.selectedProfileId !== undefined && state.selectedProfileId !== input.profileId)
+        || !(await this.catalog.list()).some(profile => profile.id === input.profileId) || !checkpoint) throw Error('The pending pause or selected connection profile is stale');
       this.admitCheckpoint(checkpoint, state);
       delete state.pause; delete state.error; state.status = 'running';
       // Consume the one-use answer before re-entering native execution. A crash is retained, never replayed blindly.
@@ -70,10 +84,15 @@ export class ResourceFlowWorkflow {
   }
   private async load(): Promise<StoredResourceFlow> {
     const envelope = await this.options.store.load() ?? { version: 1 as const, state: initialState(this.definition, this.definitionDigest) };
+    const profiles = await this.catalog.list();
     if (envelope.state.definitionDigest !== this.definitionDigest
       || canonical({ id: envelope.state.id, resourceId: envelope.state.resourceId, label: envelope.state.label, mode: envelope.state.mode, target: envelope.state.target, configurationDigest: envelope.state.configurationDigest }) !== canonical(this.definition)
-      || (envelope.state.pause && canonical(envelope.state.pause.profiles) !== canonical(this.profiles))
-      || (envelope.state.details && !this.profiles.some(profile => profile.id === envelope.state.details!.profileId))) {
+      || (envelope.state.pause && (this.catalog.dynamic
+        ? envelope.state.pause.profiles.some(profile => !profiles.some(current => canonical(current) === canonical(profile)))
+        : canonical(envelope.state.pause.profiles) !== canonical(envelope.state.selectedProfileId ? profiles.filter(profile => profile.id === envelope.state.selectedProfileId) : profiles)))
+      || (envelope.state.selectedProfileId && !profiles.some(profile => profile.id === envelope.state.selectedProfileId))
+      || (this.options.requireProfileAtStart && envelope.state.status !== 'idle' && !envelope.state.selectedProfileId)
+      || (envelope.state.details && !profiles.some(profile => profile.id === envelope.state.details!.profileId))) {
       throw Error('Resource flow definition, profile catalog or target changed; the stored execution cannot be resumed');
     }
     return envelope;
@@ -86,13 +105,14 @@ export class ResourceFlowWorkflow {
       || !shared || Object.keys(shared).some(key => !allowed.includes(key))
       || shared.definitionDigest !== this.definitionDigest || canonical(shared.definition) !== canonical(this.definition)
       || shared.awaitingProfile !== true || canonical(shared.resource) !== canonical(state.resource)
-      || shared.details !== undefined || shared.connection !== undefined || shared.verification !== undefined || shared.selectedProfileId !== undefined || shared.error !== undefined || shared.failure !== undefined
+      || shared.details !== undefined || shared.connection !== undefined || shared.verification !== undefined || shared.selectedProfileId !== state.selectedProfileId || shared.error !== undefined || shared.failure !== undefined
       || shared['progress:connect'] !== undefined || shared['progress:verify'] !== undefined
       || (shared.context as { executionId?: string })?.executionId !== state.executionId
       || (shared.context as { definitionDigest?: string })?.definitionDigest !== this.definitionDigest
       || (shared.context as { operationId?: string })?.operationId !== fingerprint(state.executionId)
+      || (shared.context as { profileId?: string })?.profileId !== state.selectedProfileId
       || checkpoint.pausedExecution?.runId !== state.segments.at(-1)?.runId || state.segments.at(-1)?.status !== 'paused'
-      || Object.keys(shared.context as object).sort().join(',') !== 'definitionDigest,executionId,operationId') throw Error('The checkpoint does not match this pending resource and definition');
+      || Object.keys(shared.context as object).sort().join(',') !== (state.selectedProfileId ? 'definitionDigest,executionId,operationId,profileId' : 'definitionDigest,executionId,operationId')) throw Error('The checkpoint does not match this pending resource and definition');
     readResourceHandle(shared.resource);
     if (shared.validatedResource !== undefined) readResourceHandle(shared.validatedResource);
     for (const id of ['acquire', 'details']) {
@@ -116,8 +136,17 @@ export class ResourceFlowWorkflow {
       }
       await store.save({ version: 1, state }); this.publish(state);
     };
+    let profiles: ConnectionProfileChoice[];
+    try {
+      profiles = await this.catalog.list();
+      if (state.selectedProfileId) profiles = profiles.filter(profile => profile.id === state.selectedProfileId);
+      if (!profiles.length) throw Error('No configured connection profiles are available');
+    } catch {
+      state.status = 'incomplete'; state.error = 'The connection profile catalog could not be loaded. No lifecycle adapter was started in this execution segment.';
+      await store.save({ version: 1, state }); this.publish(state); return readResourceFlowState(state);
+    }
     const chart = createResourceFlowChart({ definition: this.definition, definitionDigest: this.definitionDigest,
-      executionId: state.executionId!, profiles: this.profiles, adapters: this.options.adapters, persist });
+      executionId: state.executionId!, profiles, selectedProfileId: state.selectedProfileId, adapters: this.options.adapters, persist });
     let sink: ReturnType<typeof fileSink> | undefined;
     let executor: FlowChartExecutor | undefined;
     const control = controlDepRecorder({ id: 'iac-resource-flow-control' });
@@ -155,7 +184,8 @@ export class ResourceFlowWorkflow {
     if (captureFailed) { state.status = 'incomplete'; state.error = 'Native capture could not be fully retained. Inspect resource outcomes before any further execution.'; }
     else if (failed) { state.status = 'failed'; state.error = 'A recorded resource lifecycle stage failed. Check its measured results and private adapter diagnostics.'; }
     else if (paused && nextCheckpoint) {
-      state.status = 'paused'; state.pause = { token: randomBytes(32).toString('hex'), prompt: 'Choose a connection profile', profiles: this.profiles };
+      state.status = 'paused'; state.pause = { token: randomBytes(32).toString('hex'), prompt: state.selectedProfileId ? 'Confirm the selected connection profile' : 'Choose a connection profile',
+        profiles };
     } else if (state.stages.every(stage => stage.status === 'passed') && state.verification?.ok === true) state.status = 'passed';
     else { state.status = 'incomplete'; state.error = 'The native execution did not confirm every lifecycle stage.'; }
     const envelope: StoredResourceFlow = { version: 1, state,
