@@ -8,7 +8,7 @@ This feature adds reusable source, build, artifact storage and deployment ports 
 - Viewer: https://github.com/footprintjs/footprintjs-iac-lens
 - Example application: https://github.com/sanjay1909/neo-agentfootprint
 
-Use sibling base/viewer checkouts containing this feature. They and the Neo source require the recipient's own repository access. Requirements are Node.js 24+, Git, npm, Docker, kind and kubectl. The host Git credential helper must already be able to read the private Neo repository; tokens do not belong in repository URLs or the browser.
+Use sibling base/viewer checkouts containing this feature. The base and viewer repositories are public; the Neo source requires the recipient's GitHub read access. Requirements are Node.js 24+, Git, npm, Docker, kind and kubectl. The host Git credential helper must already be able to read the private Neo repository; tokens do not belong in repository URLs or the browser.
 
 Run the base check/test/build and then the viewer check/test/build directly on the local machine. Neither command dispatches GitHub Actions. See the existing [Neo setup guide](SHARING.md) for preparing a local target.
 

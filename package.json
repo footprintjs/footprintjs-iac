@@ -1,7 +1,6 @@
 {
   "name": "footprintjs-iac",
-  "version": "0.4.0",
-  "private": true,
+  "version": "0.5.0-alpha.1",
   "type": "module",
   "description": "InfraChart: compute, storage and network design with recorded infrastructure reconciliation",
   "exports": {
@@ -234,6 +233,8 @@
     "dist/src",
     "src",
     "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
     "VALIDATION.md",
     "examples",
     "integration/neo",
@@ -277,5 +278,23 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/footprintjs/footprintjs-iac.git"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "homepage": "https://github.com/footprintjs/footprintjs-iac#readme",
+  "bugs": {
+    "url": "https://github.com/footprintjs/footprintjs-iac/issues"
+  },
+  "keywords": [
+    "infrastructure-as-code",
+    "infrastructure",
+    "flowchart",
+    "footprintjs",
+    "kubernetes",
+    "systemd"
+  ],
+  "license": "MIT"
 }

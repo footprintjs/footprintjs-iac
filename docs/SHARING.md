@@ -1,6 +1,6 @@
 # Reproduce the Neo integration on another laptop
 
-The IaC library and its Neo consumer integration live in [footprintjs/footprintjs-iac](https://github.com/footprintjs/footprintjs-iac). The application remains in [sanjay1909/neo-agentfootprint](https://github.com/sanjay1909/neo-agentfootprint). Both repositories are private; the recipient needs GitHub read access to both. A repository URL does not grant that access. This handoff uses Git checkouts, not an npm registry release. Clone into the explicit `footprint-iac` and `footprint-iac-lens` directory names below: these existing local sibling paths remain the development link contract even though the repositories and packages use the new `footprintjs-iac` names.
+The IaC library and its Neo consumer integration live in [footprintjs/footprintjs-iac](https://github.com/footprintjs/footprintjs-iac). The application remains in [sanjay1909/neo-agentfootprint](https://github.com/sanjay1909/neo-agentfootprint). The library and InfraChart Lens repositories are public; the recipient still needs GitHub read access to the private Neo application repository. This source-development handoff uses Git checkouts. Consumers can instead install the exact published alpha with `npm install --save-exact footprintjs-iac@0.5.0-alpha.1`. Clone into the explicit `footprint-iac` and `footprint-iac-lens` directory names below when reproducing these examples: existing local sibling paths and prepared recordings retain those directory names while npm uses the `footprintjs-iac` names.
 
 ## Prerequisites
 

@@ -2,15 +2,15 @@
 
 **Define infrastructure as a graph. Deploy, observe and explain every change.**
 
-A TypeScript infrastructure framework built on **FootPrint 12.1.0** and **Foottrace 1.15.0**. Foundation version **0.4.0** describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk. Native recorders also drive live deployment progress and checked output generation.
+A TypeScript infrastructure framework built on **FootPrint 12.1.0** and **Foottrace 1.15.0**. Alpha version **0.5.0-alpha.1** describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk. Native recorders also drive live deployment progress and checked output generation.
 
-`footprintjs-iac` is the package name; **InfraChart** is its display name. The package remains private and unpublished. Existing state directories, Kubernetes ownership annotations and field-manager names, local fixture image references and systemd markers retain their original `footprint-iac` identifiers so the naming change preserves recorded resource ownership.
+`footprintjs-iac` is the package name; **InfraChart** is its display name. This is an early alpha: public APIs may change between prereleases. Existing state directories, Kubernetes ownership annotations and field-manager names, local fixture image references and systemd markers retain their original `footprint-iac` identifiers so the naming change preserves recorded resource ownership.
 
 This is an executable prototype with a simulator, a Kubernetes adapter and recorded native artifact generation. The separate [InfraChart Lens](https://github.com/footprintjs/footprintjs-iac-lens) supplies a live system view and Flow Lens evidence inspection. This remains a single-machine foundation, not a production deployment service.
 
 Start with the [capability and wrapper guide](docs/CAPABILITIES.md). The [identity and permission guide](docs/IDENTITY.md) covers generic access policies, recorded authorization and the LDAP adapters. See [VALIDATION.md](VALIDATION.md) for current checks and the earlier completed real Neo Kubernetes trial. The [design notes](docs/DESIGN.md) define graph semantics and implementation boundaries.
 
-For another laptop, start with the [clone, setup and test guide](docs/SHARING.md). The [agent handoff](docs/NEO-AGENT-HANDOFF.md) is ready to forward with the repository link. Both this repository and the separate Neo source repository require GitHub access.
+For another laptop, start with the [clone, setup and test guide](docs/SHARING.md). The [agent handoff](docs/NEO-AGENT-HANDOFF.md) is ready to forward with the repository link. The library repository is public; the separate Neo source repository requires GitHub read access.
 
 The host-only [platform bootstrap API](docs/platform-bootstrap.md) separates server
 access/discovery, installation strategies and cluster lifecycle adapters. It
@@ -19,6 +19,23 @@ per-action preflight, durable intent and human pause/resume. Pinned local/SSH
 transports and kubeadm/existing-cluster adapters keep installer tools outside the
 core workflow. The [workload adapter](docs/kubernetes-workload.md) then deploys
 application containers into the registered cluster.
+
+## Install the alpha
+
+Requires Node.js 24 or newer. Pin the preview version when adopting it in an application:
+
+```sh
+npm install --save-exact footprintjs-iac@0.5.0-alpha.1
+```
+
+The `alpha` distribution tag tracks the current preview (`npm install footprintjs-iac@alpha`).
+Use public package exports such as `footprintjs-iac`,
+`footprintjs-iac/deployment-strategy` and `footprintjs-iac/master/workflow`.
+Importing the library performs no deployment. Providers, private connection profiles,
+secret stores and rollout policy are registered by the consuming host.
+
+See [CHANGELOG.md](CHANGELOG.md) for this release. The separate
+`footprintjs-iac-lens` package provides the optional dashboard; the core has no React dependency.
 
 ## Capability API
 
@@ -115,7 +132,7 @@ npm run iac -- replay /absolute/path/to/run.json
 npm run iac -- replay /absolute/path/to/run.json --commit 0
 ```
 
-`npm run build` produces the importable library in `dist/src`. The package remains private and has not been published.
+`npm run build` produces the importable library in `dist/src`. npm releases include compiled JavaScript, TypeScript declarations, source and integration guides.
 
 ## Versioned master workflow
 
@@ -565,3 +582,7 @@ Handled failures retain a full snapshot, execution tree, matching control lookup
 Native record completeness describes whether traversal was fully captured. Deployment success is separately reported by `ApplyResult.ok` and the recorded `failed`/`failure` state. A handled provider failure can therefore have a complete native traversal record.
 
 Record replay reconstructs saved state. It does not execute an API request, recreate a cloud resource or roll anything back. Backwalking follows recorded candidate dependencies; it does not prove an external provider's internal root cause. A fresh reconciliation run gets a fresh execution record; cross-run causal stitching is not implemented.
+
+## License
+
+[MIT](LICENSE).
