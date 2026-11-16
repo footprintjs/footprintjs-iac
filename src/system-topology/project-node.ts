@@ -1,3 +1,4 @@
+import { projectNodeActions } from './actions.ts';
 import { checkState, componentState, measuredFact, progress, references, resourceState, selected, terminalUnadmitted } from './observed-state.ts';
 import type { SystemTopologyObservations, TopologyFact, TopologyNode, TopologyNodeView, TopologyStatus } from './types.ts';
 const labels: Record<TopologyStatus, string> = {
@@ -63,6 +64,6 @@ export function projectNode(node: TopologyNode, observations: SystemTopologyObse
         && (!hasComponent || installed === 'confirmed');
     const originLabel = node.origin === 'existing' ? 'Existing' : node.origin === 'embedded' ? 'Embedded in app' : created ? 'Installed by deployment' : 'Managed by deployment';
     const connected: TopologyFact = hasChecks ? (checks === 'ready' ? 'confirmed' : checks === 'failed' ? 'refuted' : 'unknown') : 'unknown';
-    return { ...node, status, statusLabel, originLabel, facts: { installed, running, connected }, evidenceScope: scope,
+    return { ...node, ...(observations.actions===undefined?{}:{actions:projectNodeActions(node,observations.actions)}), status, statusLabel, originLabel, facts: { installed, running, connected }, evidenceScope: scope,
         progress: progress(node.bindings, rows), evidence: references(all), limitations };
 }

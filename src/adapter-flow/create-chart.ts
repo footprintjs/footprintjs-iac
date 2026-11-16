@@ -4,6 +4,8 @@ import type { AdapterFlowContext, AdapterFlowPhase } from './types.ts';
 
 export interface AdapterPhase {
   id: string; name: string; phase: AdapterFlowPhase;
+  /** Set only when this actual provider phase operates on one registered component. */
+  componentId?: string;
   /** Public facts are emitted explicitly by the phase; private transport output stays outside scope. */
   run(scope: AdapterFlowScope): Promise<void>;
 }
@@ -19,9 +21,9 @@ export function createAdapterFlowChart(binding: AdapterFlowContext, phases: read
       { when: { adapterFlowPassed: { eq: true } }, then: phase.id, label: 'Previous provider boundary confirmed' },
     ], `skip-${phase.id}`), `gate-${phase.id}`)
       .addFunctionBranch(phase.id, phase.name, async scope => {
-        scope.progress(binding, phase.phase, 'running');
-        try { await phase.run(scope); scope.progress(binding, phase.phase, 'passed'); }
-        catch { const outcome = { status: 'unknown' as const, code: 'adapter-effect-unconfirmed' }; scope.setValue('adapterFlowOutcome', outcome); scope.setValue('adapterFlowPassed', false); scope.progress(binding, phase.phase, 'unknown'); }
+        scope.progress(binding, phase.phase, 'running',phase.componentId?{componentId:phase.componentId}:{});
+        try { await phase.run(scope); scope.completePhase(binding,phase.phase,phase.componentId); }
+        catch { const outcome = { status: 'unknown' as const, code: 'adapter-effect-unconfirmed' }; scope.setValue('adapterFlowOutcome', outcome); scope.setValue('adapterFlowPassed', false); scope.progress(binding, phase.phase, 'unknown',phase.componentId?{componentId:phase.componentId}:{}); }
       })
       .addFunctionBranch(`skip-${phase.id}`, `Do not run ${phase.name}`, () => undefined)
       .setDefault(`skip-${phase.id}`).end();

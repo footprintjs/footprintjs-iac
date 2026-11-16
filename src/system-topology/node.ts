@@ -23,3 +23,4 @@ export function validateSystemTopologyView(input: unknown) {
     validateSystemTopologyDefinition(view.definition);
     return view;
 }
+export { admitTopologyActions } from './admit-actions.ts';

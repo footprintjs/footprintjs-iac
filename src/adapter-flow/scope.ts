@@ -4,6 +4,16 @@ import { ADAPTER_FLOW_EVENT, type AdapterFlowContext, type AdapterFlowOutcome, t
 export class AdapterFlowScope extends ScopeFacade {
   get adapterFlowPassed(): boolean { return this.getValue('adapterFlowPassed') as boolean; }
   get outcome(): AdapterFlowOutcome { return this.getValue('adapterFlowOutcome') as AdapterFlowOutcome; }
+  /** Explicit terminal component measurements win over the generic wrapper completion. */
+  completePhase(binding:AdapterFlowContext,phase:AdapterFlowPhase,componentId?:string):void {
+    if(componentId){
+      const current=this.getValue(`adapterComponent:${componentId}`) as AdapterFlowProgress|undefined;
+      if(current?.phase===phase&&current.componentId===componentId&&current.status!=='running'
+        &&current.deploymentRunId===binding.deploymentRunId&&current.resourceId===binding.resourceId
+        &&current.adapterId===binding.adapterId&&current.operationId===binding.operationId)return;
+    }
+    this.progress(binding,phase,'passed',componentId?{componentId}:{});
+  }
   progress(binding: AdapterFlowContext, phase: AdapterFlowPhase, status: AdapterFlowStatus, facts: Pick<AdapterFlowProgress,'componentId'|'installed'|'running'> = {}): void {
     // Read the mounted input so recorded child observations retain their parent data provenance.
     void this.getValue('adapterFlowInput');

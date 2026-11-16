@@ -1,3 +1,4 @@
+import type { AdapterFlowPhase, AdapterFlowStatus } from '../adapter-flow/types.ts';
 /** Safe declarative architecture. No addresses, credentials, commands or arbitrary icon URLs. */
 export type TopologyCategory = 'compute' | 'storage' | 'network' | 'identity' | 'other';
 export type TopologyOrigin = 'existing' | 'deployment' | 'embedded';
@@ -82,16 +83,30 @@ export interface TopologyCheckObservation {
     status: 'checking' | 'passed' | 'failed' | 'unknown';
     evidence: TopologyEvidenceReference;
 }
+/** Observed execution metadata, separate from installed/running/verified facts. */
+export interface TopologyActionObservation {
+    resourceId: string;
+    componentId?: string;
+    phase: AdapterFlowPhase;
+    status: AdapterFlowStatus;
+    evidence: TopologyEvidenceReference & { kind: 'adapter'; runtimeStageId: string };
+}
+export interface TopologyNodeAction extends TopologyActionObservation {
+    scope: 'component' | 'shared-resource';
+    label: string;
+}
 export interface SystemTopologyObservations extends SystemTopologyBinding {
     definitionDigest: string;
     configurationDigest: string;
     resources: readonly TopologyResourceObservation[];
     components: readonly TopologyComponentObservation[];
     checks: readonly TopologyCheckObservation[];
+    actions?: readonly TopologyActionObservation[];
 }
 export type TopologyStatus = 'pending' | 'installing' | 'starting' | 'checking' | 'connected' | 'ready' | 'failed' | 'unknown' | 'incomplete' | 'skipped' | 'removed';
 export type TopologyFact = 'confirmed' | 'refuted' | 'unknown';
 export interface TopologyNodeView extends TopologyNode {
+    actions?: readonly TopologyNodeAction[];
     status: TopologyStatus;
     statusLabel: string;
     originLabel: string;

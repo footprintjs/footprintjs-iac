@@ -11,7 +11,7 @@ export function createSystemdHostApplyChart(request:SystemdUnitApplyRequest|Syst
   binding:AdapterFlowContext&{components:readonly {componentId:string;unit:string}[]},ports:SystemdNativeHostPorts) {
   const phases:AdapterPhase[]=(['revalidate','configure','reload','start'] as const).map(phase=>({id:`systemd-${phase}`,name:{revalidate:'Revalidate registered services',configure:'Write managed release markers',reload:'Reload systemd configuration',start:'Restart service transaction'}[phase],phase,
     async run(){await ports.command(phase,request,context);}}));
-  for(const component of binding.components)phases.push({id:`systemd-observe-${component.componentId}`,name:`Observe ${component.componentId}`,phase:'observe',async run(scope){
+  for(const component of binding.components)phases.push({id:`systemd-observe-${component.componentId}`,name:`Observe ${component.componentId}`,phase:'observe',componentId:component.componentId,async run(scope){
     const observed=await ports.observe(component.unit,request,context);
     scope.progress(binding,'observe','passed',{componentId:component.componentId,installed:observed.exists,running:observed.activeState==='active'});
   }});

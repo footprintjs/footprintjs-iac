@@ -141,7 +141,7 @@ function evidence(input: unknown, kind: TopologyEvidenceReference['kind']) {
     return value;
 }
 export function readSystemTopologyObservations(input: unknown): SystemTopologyObservations {
-    const value = object(input, ['targetId', 'graphDigest', 'definitionDigest', 'configurationDigest', 'resources', 'components', 'checks']);
+    const value = object(input, ['targetId', 'graphDigest', 'definitionDigest', 'configurationDigest', 'resources', 'components', 'checks', 'actions']);
     id(value.targetId);
     for (const key of ['graphDigest', 'definitionDigest', 'configurationDigest'])
         digest(value[key]);
@@ -174,6 +174,18 @@ export function readSystemTopologyObservations(input: unknown): SystemTopologyOb
             throw Error('Invalid topology check observation');
         checks.add(cid);
         evidence(c.evidence, 'check');
+    }
+    if(value.actions!==undefined){
+        const actions=new Set<string>();
+        for(const raw of list(value.actions,2048)){
+            const a=object(raw,['resourceId','componentId','phase','status','evidence']);
+            id(a.resourceId);if(a.componentId!==undefined)id(a.componentId);
+            if(!['inspect','revalidate','configure','reload','start','apply','observe'].includes(String(a.phase))||!['running','passed','failed','unknown'].includes(String(a.status)))throw Error('Invalid topology action');
+            const reference=evidence(a.evidence,'adapter');
+            if(reference.runtimeStageId===undefined)throw Error('Topology actions require their native stage');
+            const key=[a.resourceId,a.componentId??'',a.phase,reference.runtimeStageId].join('\0');
+            if(actions.has(key))throw Error('Duplicate topology action');actions.add(key);
+        }
     }
     return freeze(value as unknown as SystemTopologyObservations);
 }

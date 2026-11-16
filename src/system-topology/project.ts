@@ -10,6 +10,14 @@ export function projectSystemTopology(definition: SystemTopologyDefinition, obse
     if (observed.targetId !== declared.binding.targetId || observed.graphDigest !== declared.binding.graphDigest || observed.definitionDigest !== declared.digest) {
         throw Error('Topology observations belong to another declaration or target');
     }
+    const actionBindings=[...declared.nodes.map(node=>node.bindings),...declared.boundaries.flatMap(boundary=>boundary.bindings?[boundary.bindings]:[])];
+    const actionRuns=new Map<string,string>();
+    for(const action of observed.actions??[]){
+        if(!actionBindings.some(binding=>binding.resourceIds.includes(action.resourceId)&&(!action.componentId||(binding.componentIds??[]).includes(action.componentId))))throw Error('Topology action belongs to an unregistered resource or component');
+        const currentRun=actionRuns.get(action.resourceId);
+        if(currentRun!==undefined&&currentRun!==action.evidence.runId||observed.components.some(component=>component.resourceId===action.resourceId&&component.evidence.runId!==action.evidence.runId))throw Error('Topology action belongs to another component run');
+        actionRuns.set(action.resourceId,action.evidence.runId);
+    }
     const nodes = declared.nodes.map(node => projectNode(node, observed));
     const connections = declared.connections.map(edge => {
         const ids = edge.checkIds ?? [];

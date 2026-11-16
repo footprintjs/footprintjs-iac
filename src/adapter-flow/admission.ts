@@ -44,8 +44,18 @@ export async function admitAdapterFlowEvents(input:{evidence:EvidenceTraceInput&
     if(!log||!log.complete||!event.drillPath.length)throw Error('adapter-component-log-missing');
     const key=`adapterComponent:${event.componentId}`;
     const {runId,logRunId,runtimeStageId,subflowPath,drillPath,stageName,timestamp,sequence,committedThroughIdx,...payload}=event;
-    const commit=log.commitLog.find((commit,index)=>index>committedThroughIdx&&commit.runtimeStageId===runtimeStageId
-      &&commit.trace.some(row=>row.path===key&&row.verb==='set')&&canonical(stateAt(log,index).state[key])===canonical(payload));
+    const commit=log.commitLog.find((commit,index)=>{
+      if(index<=committedThroughIdx||commit.runtimeStageId!==runtimeStageId||!commit.trace.some(row=>row.path===key&&row.verb==='set'))return false;
+      const retained=stateAt(log,index).state[key];
+      // A live start event and its measured completion share one native commit.
+      // Only that provisional event may match the same component/phase identity;
+      // authoritative facts below always come from the exact committed payload.
+      if(!authoritative&&payload.status==='running'&&retained&&typeof retained==='object'&&!Array.isArray(retained)){
+        const value=retained as Record<string,unknown>;
+        return ['version','deploymentRunId','adapterId','resourceId','operationId','componentId','phase'].every(field=>value[field]===(payload as unknown as Record<string,unknown>)[field]);
+      }
+      return canonical(retained)===canonical(payload);
+    });
     if(!commit)throw Error('adapter-component-write-missing');
     if(authoritative)latest.set(`${event.resourceId}\0${event.componentId}`,Object.freeze({componentId:event.componentId,resourceId:event.resourceId,adapterId:event.adapterId,operationId:event.operationId,
       phase:event.phase,status:event.status,...(event.installed===undefined?{}:{installed:event.installed}),...(event.running===undefined?{}:{running:event.running}),
