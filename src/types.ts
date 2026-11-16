@@ -44,6 +44,15 @@ export interface ResourceAdapter {
   apply(resource: Resource, context: ProviderContext): Promise<void>;
   remove(resource: Resource, context: ProviderContext): Promise<void>;
   waitReady(resource: Resource, context: ProviderContext): Promise<void>;
+  /** Explicit observation-only settlement of an earlier uncertain effect. Never applies or repairs. */
+  inspectOutcome?(resource: Resource, context: ProviderContext): Promise<ResourceOutcomeInspection>;
+}
+
+export interface ResourceOutcomeInspection {
+  runtimeControlReturned: boolean;
+  quiescent: boolean;
+  observation: Observation;
+  evidence: JsonObject;
 }
 
 export type Action = 'create' | 'update' | 'verify' | 'delete' | 'noop';
@@ -74,6 +83,7 @@ export interface StackState {
   stack: string;
   resources: Record<string, ManagedResource>;
   providerScopes?: Record<string, string>;
+  reconciliations?: { originalRunId: string; runId: string; evidencePath: string; tracePath: string; digest: string }[];
 }
 
 export interface JournalEntry {

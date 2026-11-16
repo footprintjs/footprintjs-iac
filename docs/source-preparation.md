@@ -11,6 +11,11 @@ through its normal deployment interface. Preparation never reports deployment
 or application verification stages that did not run. `DeliveryWorkflow` remains
 available when the host deliberately owns all seven delivery stages.
 
+Source and release preparation share one private four-stage chart and native
+execution kernel. The source API retains its target-bound receipt identity;
+release preparation retains its sealed manifest for build-once promotion.
+Their public state/evidence kinds and historic recordings remain unchanged.
+
 ## Public interfaces
 
 ```ts

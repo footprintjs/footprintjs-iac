@@ -78,6 +78,16 @@ def main():
  identity=machine()
  if request.get('operation')=='inspect':
   print(json.dumps({'identityDigest':identity,'units':[inspect_registered(name,directories) for name in units]},separators=(',',':')));return
+ if request.get('operation')=='inspect-jobs':
+  jobs=[]
+  for name in units:
+   inspect_registered(name,directories)
+   result=run(['systemctl','show','--no-pager','--property=Id,Job',name])
+   values=dict(line.split('=',1) for line in result.stdout.splitlines() if '=' in line)
+   if result.returncode or values.get('Id')!=name or 'Job' not in values or not re.fullmatch(r'(?:[0-9]+(?: /org/freedesktop/systemd1/job/[0-9]+)?)?',values['Job']): raise ValueError('measured manager job required')
+   job=values['Job'].split(' ')[0]
+   jobs.append({'unit':name,'jobId':None if job in ['', '0'] else job})
+  print(json.dumps({'identityDigest':identity,'jobs':jobs},separators=(',',':')));return
  if request.get('operation') not in ['apply','apply-group']: raise ValueError('fixed operation required')
  action=request['request']; context=request['context']
  names=action['units'] if request['operation']=='apply-group' else [action['unit']]

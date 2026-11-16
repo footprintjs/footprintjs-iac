@@ -16,6 +16,7 @@ import { SystemdDeploymentStore, sealReview, type SystemdReview } from './store.
 import { verifySystemdReplay } from './replay.ts';
 import { recordSystemdTarget } from './target-check.ts';
 import {captureSystemdSourceProvenance,systemdSourceProvenanceDigest} from './source-provenance.ts';
+import {createSystemdReconciler} from './reconcile.ts';
 import type { DeploymentStrategyAdapter, SystemdDeploymentOptions } from './types.ts';
 
 /** Same engine/Master/check lifecycle as a guarded Kubernetes controller, over installed services. */
@@ -33,7 +34,8 @@ export function createSystemdDeploymentAdapter(options:SystemdDeploymentOptions)
   const master=new MasterWorkflow({engine,store:new FileMasterStore(join(directory,'master')),target});
   const bindingDigest=fingerprint({id,stack:options.stack,registration,units:units.map(({configurationDigest,...unit})=>unit),transaction:mode}),store=new SystemdDeploymentStore(directory,id,bindingDigest);
   const contract=()=>fingerprint({preflight:checkContract(preflight),application:checkContract(application)});
-  const idle=(state:Awaited<ReturnType<typeof store.load>>)=>{if(state.attempts.some(attempt=>['started','incomplete'].includes(attempt.status)))throw Error('systemd-effects-unconfirmed-inspect-before-another-attempt');};
+  const idle=(state:Awaited<ReturnType<typeof store.load>>)=>{if(state.attempts.some(attempt=>['started','incomplete'].includes(attempt.status)
+    &&!state.reconciliations?.some(row=>row.attemptId===attempt.id&&row.status==='reconciled-failed')))throw Error('systemd-effects-unconfirmed-inspect-before-another-attempt');};
   const check=async(directory:string)=>{
     const measured=await recordSystemdTarget({adapter,bindingDigest,directory,releaseId:graph.name,releaseDigest:graph.digest,target});
     const checks=[measured.state];
@@ -41,9 +43,10 @@ export function createSystemdDeploymentAdapter(options:SystemdDeploymentOptions)
     return{facts:measured.facts,checks,passed:measured.passed&&checks.every(state=>state.status==='passed'&&state.recording?.complete===true)};
   };
   return {id,kind:'systemd',
+    reconcile:createSystemdReconciler({store,master,engine,adapter,graph}),
     async snapshot(){const state=await store.load(),history=await master.getState();try{await verifySystemdReplay(state,history);}catch{throw Error('systemd-native-replay-not-admitted');}return{state,master:history};},
     plan(input){return store.withLock(async()=>{
-      const state=await store.load();idle(state);const measured=await check(join(directory,'checks',randomUUID()));
+      const state=await store.load();await verifySystemdReplay(state,await master.getState());idle(state);const measured=await check(join(directory,'checks',randomUUID()));
       if(!measured.passed||!measured.facts)return{kind:'systemd-deployment-review',ok:false,graphDigest:graph.digest,checks:measured.checks,reason:'preflight-not-verified'};
       const history=await master.getState();await master.stage(defineSystemRevision({revisionId:input.revisionId,parentDigest:history.appliedDigest,target,graph,...provenance}),{expectedAppliedDigest:history.appliedDigest});
       const reviewed=await master.preview();if(reviewed.plan.operations.some(operation=>!['update','verify','noop'].includes(operation.action)))throw Error('systemd-plan-action-not-admitted');
@@ -51,7 +54,7 @@ export function createSystemdDeploymentAdapter(options:SystemdDeploymentOptions)
       const review:SystemdReview={...body,seal:sealReview(body)};state.reviews.push(review);state.currentReviewId=review.reviewId;await store.save(state);return structuredClone(review);
     });},
     apply(reviewId){return store.withLock(async()=>{
-      const state=await store.load();idle(state);if(state.attempts.some(attempt=>attempt.reviewId===reviewId))throw Error('systemd-review-already-consumed');
+      const state=await store.load();await verifySystemdReplay(state,await master.getState());idle(state);if(state.attempts.some(attempt=>attempt.reviewId===reviewId))throw Error('systemd-review-already-consumed');
       const review=state.reviews.find(item=>item.reviewId===reviewId);
       if(!review||state.currentReviewId!==reviewId||review.graphDigest!==graph.digest||review.seal!==sealReview(review))throw Error('systemd-review-not-current');
       const history=await master.getState();if(history.review?.reviewId!==review.masterReview.reviewId||history.review.planDigest!==review.masterReview.planDigest)throw Error('systemd-master-review-not-current');

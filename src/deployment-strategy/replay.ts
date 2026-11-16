@@ -9,9 +9,32 @@ import type { ApplyResult } from '../engine.ts';
 import type { CheckExecutionState } from '../checks/types.ts';
 import type { MasterState } from '../master/types.ts';
 import type { SystemdLedger } from './store.ts';
+import {admitEngineReconciliation} from '../execution/reconciliation.ts';
+import {admitSystemdOutcomeProof} from './outcome-proof.ts';
 
 /** Reopening proves retained outcomes against native records; no host/check port is invoked. */
 export async function verifySystemdReplay(state:SystemdLedger, master:MasterState):Promise<void> {
+  for(const row of state.reconciliations??[]){
+    const attempt=state.attempts.find(attempt=>attempt.id===row.attemptId&&attempt.reviewId===row.reviewId);
+    const review=state.reviews.find(review=>review.reviewId===row.reviewId),result=attempt?.result as {deployment?:ApplyResult}|undefined;
+    const native=master.attempts.find(native=>native.reviewId===review?.masterReview.reviewId&&native.runId===result?.deployment?.runId);
+    const revision=master.revisions.find(revision=>revision.digest===review?.masterReview.candidateDigest);
+    if(!attempt||attempt.status!=='incomplete'||!review||!result?.deployment||result.deployment.ok||!native||native.status!=='failed'
+      ||!revision||native.revisionDigest!==revision.digest||native.evidencePath!==result.deployment.evidencePath||native.tracePath!==result.deployment.tracePath
+      ||native.planDigest!==review.masterReview.planDigest||fingerprintPlan(result.deployment.plan)!==review.masterReview.planDigest
+      ||row.status!==(row.reconciliation.status==='failed'?'reconciled-failed':'incomplete'))throw Error('systemd-reconciliation-binding-not-admitted');
+    await verifyRevisionOutcome(revision,result.deployment);
+    await admitEngineReconciliation(row.reconciliation,result.deployment);
+    if(row.status==='reconciled-failed'){
+      const evidence=await loadEvidence(row.reconciliation.evidencePath),ids=evidence.snapshot.sharedState.operationIds as string[];
+      for(const id of ids){
+        const operation=result.deployment.plan.operations.find(operation=>operation.operationId===id)!;
+        const inspection=evidence.snapshot.sharedState[`inspection:${operation.resource.id}`] as {evidence?:{proof?:import('./types.ts').SystemdOutcomeInspection['proof']}};
+        if(!inspection?.evidence?.proof)throw Error('systemd-reconciliation-proof-missing');
+        await admitSystemdOutcomeProof(inspection.evidence.proof,id);
+      }
+    }
+  }
   for(const attempt of state.attempts){
     if(!['promoted','verification-failed'].includes(attempt.status))continue;
     const review=state.reviews.find(row=>row.reviewId===attempt.reviewId), revision=master.revisions.find(row=>row.digest===review?.masterReview.candidateDigest);

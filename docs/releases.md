@@ -6,6 +6,11 @@ and runs the recorded build workflow. `/releases/github` is an optional source
 catalog adapter. The pipeline consumes a sealed manifest; it does not rebuild
 it separately for each environment.
 
+The four source/build stages and native capture lifecycle share the private
+preparation kernel with source preparation. This wrapper still seals the same
+release manifest and retains its existing state and recording formats. An
+environment review consumes the prepared artifact; it does not rebuild it.
+
 ```ts
 import { ReleasePreparationWorkflow, FileReleasePreparationStore } from 'footprintjs-iac/releases/node';
 

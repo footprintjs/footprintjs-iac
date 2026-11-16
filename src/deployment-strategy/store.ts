@@ -10,7 +10,8 @@ export interface SystemdReview {
   checkContractDigest:string;applicationContract:{runnerId:string;suiteId:string;suiteDigest:string;requiredCheckIds:string[]};checks:CheckExecutionState[];masterReview:MasterReview;seal:string;
 }
 export interface SystemdAttempt {id:string;reviewId:string;status:'started'|'blocked'|'incomplete'|'promoted'|'verification-failed';result?:unknown}
-export interface SystemdLedger {version:1;id:string;bindingDigest:string;currentReviewId?:string;reviews:SystemdReview[];attempts:SystemdAttempt[]}
+export interface SystemdReconciliation {attemptId:string;reviewId:string;status:'reconciled-failed'|'incomplete';reconciliation:import('../execution/reconciliation.ts').EngineReconciliationResult}
+export interface SystemdLedger {version:1;id:string;bindingDigest:string;currentReviewId?:string;reviews:SystemdReview[];attempts:SystemdAttempt[];reconciliations?:SystemdReconciliation[]}
 export function sealReview(review:Omit<SystemdReview,'seal'>|SystemdReview):string {
   return fingerprint({reviewId:review.reviewId,graphDigest:review.graphDigest,factsDigest:review.factsDigest,checkContractDigest:review.checkContractDigest,applicationContract:review.applicationContract,
     masterReviewId:review.masterReview.reviewId,candidateDigest:review.masterReview.candidateDigest,planDigest:review.masterReview.planDigest});
@@ -22,6 +23,7 @@ export class SystemdDeploymentStore {
   async load():Promise<SystemdLedger>{
     try{const stat=await lstat(this.path);if(!stat.isFile()||stat.isSymbolicLink()||stat.size>16*1024*1024)throw Error();const value=JSON.parse(await readFile(this.path,'utf8')) as SystemdLedger;
       if(value.version!==1||value.id!==this.id||value.bindingDigest!==this.bindingDigest||!Array.isArray(value.reviews)||!Array.isArray(value.attempts)
+        ||value.reconciliations!==undefined&&!Array.isArray(value.reconciliations)
         ||value.reviews.some(review=>review.seal!==sealReview(review)||review.factsDigest!==fingerprint({...review.facts,units:[...review.facts.units].sort((a,b)=>a.name.localeCompare(b.name))})))throw Error();
       return value;
     }catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return{version:1,id:this.id,bindingDigest:this.bindingDigest,reviews:[],attempts:[]};throw Error('systemd-deployment-ledger-not-admitted');}

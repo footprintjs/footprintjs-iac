@@ -53,6 +53,16 @@ test('Kubernetes strategy delegates the existing guarded controller without a pa
  assert.throws(()=>new DeploymentStrategyRegistry({adapters:[adapter,adapter]}),/duplicate/);
 });
 
+test('deployment registry preserves and captures optional reconciliation without invoking it during registration',async()=>{
+ let calls=0;
+ const controller={id:'reconcilable',kind:'custom',async plan(){return{ok:true};},async apply(){return{ok:false,promoted:false,status:'incomplete'};},async snapshot(){return{};},
+   async reconcile(reviewId:string){assert.equal(this.id,'reconcilable');calls++;return{ok:false as const,promoted:false as const,status:'reconciled-failed' as const,reviewId};}};
+ const selected=new DeploymentStrategyRegistry({adapters:[controller]}).select(controller.id);
+ assert.equal(calls,0);assert.equal(typeof selected.reconcile,'function');
+ controller.reconcile=async()=>{throw Error('mutated caller port');};
+ assert.equal((await selected.reconcile!('owned-review')).status,'reconciled-failed');assert.equal(calls,1);
+});
+
 
 test('read-only snapshot binds promoted results to actual native application evidence',async t=>{
  const f=await fixture(t),adapter=createSystemdDeploymentAdapter(f.options),review=await adapter.plan({revisionId:'neo-one'});

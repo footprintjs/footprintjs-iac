@@ -161,3 +161,15 @@ test('engine binds saved state to provider target and refuses switching targets 
   assert.equal(other.calls.length, 0);
   assert.equal(adapter.calls.length, 1);
 });
+
+test('a reopened engine cannot repeat an unsafe pending effect without explicit recorded reconciliation',async t=>{
+  const directory=await mkdtemp(join(tmpdir(),'unsafe-pending-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+  const store=new FileStateStore(directory);let mutations=0;
+  const adapter={name:'unsafe',scope:'owned-target',supportsSafeRetry:false,
+    async observe(){return{exists:true,owned:true,ready:false};},async apply(){mutations++;throw Error('runtime-outcome-unknown');},
+    async waitReady(){throw Error('not-ready');},async remove(){throw Error('not-supported');}};
+  const stack={name:'owned-app',resources:[{id:'service',provider:adapter.name,spec:{version:1}}]};
+  const first=await new InfraEngine({adapters:[adapter],store}).apply(stack);assert.equal(first.ok,false);assert.equal(mutations,1);
+  await assert.rejects(()=>new InfraEngine({adapters:[adapter],store}).apply({...stack,resources:[{...stack.resources[0]!,spec:{version:2}}]}),/reconcil|pending|uncertain/);
+  assert.equal(mutations,1);assert.ok((await store.load(stack.name)).resources.service!.pending);
+});

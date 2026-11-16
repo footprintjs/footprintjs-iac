@@ -14,6 +14,7 @@ import { readDeploymentChart, type DeploymentChartObserver } from './progress/ch
 import type { ExecutionFailure } from './execution/types.ts';
 import type { FailureStrategy, Plan, ResourceAdapter, Stack, StateStore } from './types.ts';
 import { fingerprintPlan } from './master/plan.ts';
+import { reconcileEngine } from './execution/reconciliation.ts';
 
 export interface ApplyResult {
   ok: boolean;
@@ -59,6 +60,11 @@ export class InfraEngine {
     return buildPlan(requested, await this.store.load(requested.name), this.adapters, options);
   }
 
+  /** Observe an exact failed native attempt. No apply, restart, repair or promotion is admitted. */
+  reconcile(stack:Stack, original:ApplyResult) {
+    return reconcileEngine({stack,original,store:this.store,adapters:this.adapters,...(this.traceDirectory?{traceDirectory:this.traceDirectory}:{})});
+  }
+
   async apply(stack: Stack, options: { prune?: boolean; expectedPlanDigest?: string } = {}): Promise<ApplyResult> {
     const expected = Object.getOwnPropertyDescriptor(options, 'expectedPlanDigest');
     if ((expected && !('value' in expected)) || (!expected && 'expectedPlanDigest' in options)) throw new Error('Expected plan digest must be own data');
@@ -69,6 +75,9 @@ export class InfraEngine {
     assertExecutableGraph(requested); // Graph/boundary admission precedes every provider observation.
     return this.store.withLock(requested.name, async () => {
       const state = await this.store.load(requested.name);
+      if(Object.values(state.resources).some(managed=>managed.pending&&this.adapters.get(managed.resource.provider)?.supportsSafeRetry===false)) {
+        throw Error('An unsafe pending effect requires explicit recorded reconciliation before another apply');
+      }
       const plan = await buildPlan(requested, state, this.adapters, options);
       if (expectedPlanDigest !== undefined && fingerprintPlan(plan) !== expectedPlanDigest) {
         throw new Error('The reviewed plan is stale; inspect the current system and review again');

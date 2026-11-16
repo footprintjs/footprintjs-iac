@@ -45,6 +45,9 @@ function validateState(value: unknown, stack: string): asserts value is StackSta
       !Object.values(value.providerScopes).every(scope => typeof scope === 'string'))) {
     throw new Error(`Invalid provider scopes for stack ${JSON.stringify(stack)}`);
   }
+  if(value.reconciliations!==undefined&&(!Array.isArray(value.reconciliations)||value.reconciliations.some(row=>!object(row)
+    ||['originalRunId','runId','evidencePath','tracePath','digest'].some(key=>typeof row[key]!=='string'||!row[key])
+    ||!/^[a-f0-9]{64}$/.test(row.digest as string))))throw new Error('Invalid operation reconciliation references');
   for (const [key, managed] of Object.entries(value.resources)) {
     if (!object(managed) || typeof managed.fingerprint !== 'string' ||
         (managed.physicalId !== undefined && typeof managed.physicalId !== 'string') ||

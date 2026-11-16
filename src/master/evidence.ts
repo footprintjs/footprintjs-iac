@@ -5,7 +5,7 @@ import { fingerprintPlan } from './plan.ts';
 import type { SystemRevision } from './types.ts';
 
 /** Bind promotion to native evidence, never merely to a callback's success flag. */
-export async function verifyRevisionOutcome(revision: SystemRevision, result: ApplyResult): Promise<void> {
+export async function verifyRevisionOutcome(revision: Pick<SystemRevision, 'graph'>, result: ApplyResult): Promise<void> {
   const evidence = await loadEvidence(result.evidencePath);
   if (!result.runId || evidence.runId !== result.runId || result.plan.stack !== revision.graph.name
     || evidence.stack !== revision.graph.name || evidence.graph?.digest !== revision.graph.digest

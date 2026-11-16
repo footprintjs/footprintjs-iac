@@ -9,6 +9,7 @@ export interface DeploymentStrategyAdapter {
   readonly kind: string;
   plan(input: { revisionId: string }): Promise<{ ok: boolean; reviewId?: string }>;
   apply(reviewId: string): Promise<{ ok: boolean; promoted: boolean; status: string }>;
+  reconcile?(reviewId: string): Promise<{ ok: false; promoted: false; status: 'reconciled-failed' | 'incomplete'; reviewId: string; reconciliation?: import('../execution/reconciliation.ts').EngineReconciliationResult }>;
   snapshot(): Promise<unknown>;
 }
 export interface DeploymentCheckBinding { runner: CheckRunner; suiteId: string; requiredCheckIds: readonly string[] }
@@ -27,11 +28,19 @@ export interface SystemdUnitApplyRequest { unit: string; desiredSpecDigest: stri
 export interface SystemdGroupApplyRequest { units: readonly string[]; desiredSpecDigest: string; releaseDigest: string }
 export interface SystemdGroupApplyContext { operationId:string; expectedIdentityDigest:string; expectedUnits:readonly SystemdUnitObservation[] }
 export interface SystemdApplyContext { operationId: string; expectedIdentityDigest: string; expectedUnit: SystemdUnitObservation }
+export interface SystemdOutcomeInspection {
+  runtimeControlReturned: boolean;
+  jobs: readonly { unit: string; jobId: string | null }[];
+  proof: { runId: string; evidencePath: string; tracePath: string; digest: string };
+}
 /** Private trusted host code; Local/SSH/API implementations may share this port. */
 export interface SystemdDeploymentHost {
   inspect(): Promise<SystemdHostObservation>;
   applyUnit?(request: SystemdUnitApplyRequest, context: SystemdApplyContext): Promise<void>;
   applyUnits?(request: SystemdGroupApplyRequest, context: SystemdGroupApplyContext): Promise<void>;
+  /** Registered observation/settlement port. It must not apply, restart or repair units. */
+  reconcileUnits?(request: SystemdGroupApplyRequest, context: SystemdGroupApplyContext): Promise<SystemdOutcomeInspection>;
+  reconcileUnit?(request: SystemdUnitApplyRequest, context: SystemdApplyContext): Promise<SystemdOutcomeInspection>;
 }
 export interface SystemdDeploymentOptions {
   id: string; stack: string; stateDirectory: string; releaseDigest: string;

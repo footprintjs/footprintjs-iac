@@ -4,7 +4,9 @@ import type { DeploymentStrategyAdapter, DeploymentStrategyDescription } from '.
 export function captureDeploymentAdapter(adapter: DeploymentStrategyAdapter): DeploymentStrategyAdapter {
   const id = identifier(adapter?.id, 'deployment strategy ID'), kind = identifier(adapter?.kind, 'deployment strategy kind');
   if (['plan','apply','snapshot'].some(key => typeof adapter[key as keyof DeploymentStrategyAdapter] !== 'function')) throw Error('deployment-controller-required');
-  return Object.freeze({ id, kind, plan: adapter.plan.bind(adapter), apply: adapter.apply.bind(adapter), snapshot: adapter.snapshot.bind(adapter) });
+  if(adapter.reconcile!==undefined&&typeof adapter.reconcile!=='function')throw Error('deployment-reconciliation-controller-required');
+  return Object.freeze({ id, kind, plan: adapter.plan.bind(adapter), apply: adapter.apply.bind(adapter), snapshot: adapter.snapshot.bind(adapter),
+    ...(adapter.reconcile?{reconcile:adapter.reconcile.bind(adapter)}:{}) });
 }
 /** Registry construction is pure. Only a registered controller may receive an execution request. */
 export class DeploymentStrategyRegistry {

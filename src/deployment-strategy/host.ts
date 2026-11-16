@@ -15,6 +15,7 @@ export interface SystemdHostBoundaryObservation extends Omit<SystemdHostObservat
 }
 export interface RegisteredSystemdHost extends SystemdDeploymentHost {
   inspectBoundary(): Promise<SystemdHostBoundaryObservation>;
+  inspectJobs(): Promise<{ identityDigest: string; jobs: { unit: string; jobId: string | null }[] }>;
 }
 const refuse = (): never => { throw Error('systemd-host-unavailable'); };
 const observationKeys = 'activeState,appliedSpecDigest,configurationDigest,exists,fragmentDigest,fragmentPath,invocationId,name,workingDirectory';
@@ -72,6 +73,16 @@ export function createSystemdHost(options: SystemdHostOptions): RegisteredSystem
   };
   return {
     inspectBoundary,
+    async inspectJobs() {
+      try {
+        const value=await call({operation:'inspect-jobs'});
+        if(Object.keys(value).sort().join(',')!=='identityDigest,jobs'||!Array.isArray(value.jobs)||value.jobs.length!==names.length)refuse();
+        const identityDigest=sha(value.identityDigest),jobs=value.jobs as {unit:string;jobId:string|null}[];
+        if(jobs.some((row,index)=>!row||Object.keys(row).sort().join(',')!=='jobId,unit'||row.unit!==names[index]
+          ||row.jobId!==null&&(typeof row.jobId!=='string'||!/^\d{1,20}$/.test(row.jobId)||row.jobId==='0')))refuse();
+        return freeze({identityDigest,jobs});
+      }catch{return refuse();}
+    },
     async inspect() { const value = await inspectBoundary(); return readSystemdObservation({ identityDigest: value.identityDigest, units: value.units.map(({ workingDirectory, ...unit }) => unit) }); },
     async applyUnit(request, context) {
       try {

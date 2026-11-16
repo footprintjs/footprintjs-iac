@@ -10,7 +10,8 @@ success requires matching immutable definitions, receipts and complete native
 JSONL replay; uncertainty blocks automatic retry. The source adapter does not
 choose or mutate a deployment target.
 
-The construction file contains the sole four-stage chart. Stage behavior reuses
+The construction file delegates to the sole four-stage chart in the private
+`../preparation` kernel shared with release preparation. Stage behavior reuses
 delivery's source/build/publication primitives. Keep public data admission pure;
 Node recording and storage remain in the `/node` entrypoint. Tests in
 `test/source-preparation.test.ts` enforce intent ordering, source substitutions,

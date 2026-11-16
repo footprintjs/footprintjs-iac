@@ -251,6 +251,14 @@
     "./agent-platform/components/node": {
       "types": "./dist/src/agent-platform/components/node.d.ts",
       "import": "./dist/src/agent-platform/components/node.js"
+    },
+    "./package-runtime": {
+      "types": "./dist/src/package-runtime/index.d.ts",
+      "import": "./dist/src/package-runtime/index.js"
+    },
+    "./package-runtime/node": {
+      "types": "./dist/src/package-runtime/node.d.ts",
+      "import": "./dist/src/package-runtime/node.js"
     }
   },
   "files": [

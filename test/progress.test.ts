@@ -29,25 +29,28 @@ async function fixture(t: { after(fn: () => Promise<void>): void }, adapter = ne
 class GatedReadyAdapter extends SimulatorAdapter {
   private releaseReady!: () => void;
   private readonly ready = new Promise<void>(resolve => { this.releaseReady = resolve; });
+  private enteredReady!: () => void;
+  readonly entered = new Promise<void>(resolve => { this.enteredReady = resolve; });
   waiting = false;
   release(): void { this.releaseReady(); }
   override async waitReady(item?: Resource): Promise<void> {
-    if (item?.id === 'app') { this.waiting = true; await this.ready; }
+    if (item?.id === 'app') { this.waiting = true; this.enteredReady(); await this.ready; }
   }
 }
 
-test('native progress stays deploying until provider readiness and persists the full event projection', async t => {
+test('native progress stays deploying until provider readiness and persists the full event projection', { timeout: 30000 }, async t => {
   const adapter = new GatedReadyAdapter();
   const { recorder, engine } = await fixture(t, adapter);
   const received: DeploymentEvent[] = [];
   const unsubscribe = recorder.subscribe(event => { received.push(event); });
   recorder.subscribe(() => { throw new Error('A broken dashboard subscriber'); });
   const apply = engine.apply({ name: 'ready', resources: [resource('app'), resource('endpoint', ['app'])] });
-  for (let attempt = 0; !adapter.waiting && attempt < 100; attempt++) await delay(5);
-  assert.equal(adapter.waiting, true);
-  assert.equal(recorder.getSnapshot().resources.app?.status, 'deploying');
-  assert.equal(recorder.getSnapshot().resources.endpoint?.status, 'pending');
-  adapter.release();
+  try {
+    await Promise.race([adapter.entered, apply.then(() => { throw Error('The deployment finished without entering the provider readiness gate'); })]);
+    assert.equal(adapter.waiting, true);
+    assert.equal(recorder.getSnapshot().resources.app?.status, 'deploying');
+    assert.equal(recorder.getSnapshot().resources.endpoint?.status, 'pending');
+  } finally { adapter.release(); }
   const result = await apply;
   unsubscribe();
   assert.equal(result.ok, true);

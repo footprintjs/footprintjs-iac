@@ -164,3 +164,21 @@ with tempfile.TemporaryDirectory() as root:
 `);
   assert.deepEqual(value, { admitted: false, stillSymlink: true });
 });
+
+test('real Python manager job inspection accepts measured empty jobs and refuses missing or malformed properties',()=>{
+  for(const [property,expected] of [['Job=',true],['Job=0',true],['Job=17 /org/freedesktop/systemd1/job/17',true],['',false],['Job=unknown',false]] as const){
+    const value=python(applyFixture+String.raw`
+payload['operation']='inspect-jobs'
+run=lambda args:types.SimpleNamespace(returncode=0,stdout='Id='+args[-1]+'\n'+PROPERTY+'\n')
+sys.stdin=io.StringIO(json.dumps(payload))
+import contextlib
+try:
+ with contextlib.redirect_stdout(io.StringIO()) as output:main()
+ print(json.dumps({'admitted':True,'result':json.loads(output.getvalue())}))
+except Exception:print('{"admitted":false}')
+`.replace('PROPERTY',JSON.stringify(property)));
+    assert.equal(value.admitted,expected,property||'missing Job');
+    if(property==='Job='||property==='Job=0')assert.deepEqual((value.result as any).jobs,[{unit:'app.service',jobId:null},{unit:'worker.service',jobId:null}]);
+    if(property.startsWith('Job=17'))assert.equal((value.result as any).jobs[0].jobId,'17');
+  }
+});
