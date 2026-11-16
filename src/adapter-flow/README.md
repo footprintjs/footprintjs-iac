@@ -66,6 +66,21 @@ state; an empty observer history can still be reconstructed from recorded writes
 Incomplete or foreign captures are rejected. This reader performs no provider
 calls. A live event remains provisional until its capture is admitted.
 
+For an expanded live deployment view, `DeploymentChartObserver` optionally accepts
+`onRecording`. `createDeploymentRecorder({captureStages:true})` explicitly enables
+this optional work and provides `subscribeRecording` and `getRecording` for the
+port. The default recorder retains its original resource/chart progress cost and
+does not attach live native-stage hooks. Final retained native histories can still
+be expanded without this option. These observations are metadata-only slices of the
+actual native snapshot: stage addresses, committed stage identities, safe outcome
+flags and exact selected branches. The persisted `iac-native-stage-progress`
+recorder additionally retains actual scope start/end and flow decision/error
+hooks, including in-flight child stages that have not returned into the parent's
+snapshot yet. No scope inputs, arbitrary writes, raw errors or transport output
+are published. Observer failures and dropped-event counts remain explicit.
+Missing observations never imply completion or a skipped branch; these partial
+display observations do not authorize effects or replace final native evidence.
+
 When a requested native trace cannot be opened or loses an entry, execution does
 not report success or retry the unknown effect. Saved pending intent remains
 available for explicit reconciliation. Original callback-only workflows retain

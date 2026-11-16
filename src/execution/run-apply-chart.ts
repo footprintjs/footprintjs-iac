@@ -5,6 +5,7 @@ import { controlDepRecorder } from 'footprintjs/trace';
 import { fileSink, type FileSink } from 'footprintjs/sinks';
 import { errorMessage } from '../util.ts';
 import { chartObserver, type ChartPublication } from './chart-observer.ts';
+import { liveRecording } from './live-recording.ts';
 
 export const INTERNAL_CONTROL_RECORDER_ID = 'iac-internal-control-dependencies';
 
@@ -27,6 +28,8 @@ export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runI
   executor.attachCombinedRecorder(control);
   const bridge = publication ? chartObserver(publication) : undefined;
   if (bridge) executor.attachCombinedRecorder(bridge.recorder);
+  const live = publication ? liveRecording(publication.chart, publication.observers, () => executor.getSnapshot()) : undefined;
+  if (live) executor.attachCombinedRecorder(live.recorder);
   for (const recorder of recorders) executor.attachCombinedRecorder(recorder);
   let executionFailure: string|undefined;
   try {
@@ -35,6 +38,7 @@ export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runI
   }
   catch(error){if(!strictCapture)throw error;executionFailure='native-execution-or-capture-incomplete';}
   finally {
+    live?.flush(); live?.close();
     if (traceSink) {
       try { await traceSink.close(); }
       catch (error) { traceExtraFailures++; traceError = `Runtime trace close failed: ${errorMessage(error)}`; }

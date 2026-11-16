@@ -1,6 +1,6 @@
 import type { CombinedRecorder } from 'footprintjs';
 import type { Action } from '../types.ts';
-import type { DeploymentChart, DeploymentChartObserver } from './chart.ts';
+import type { DeploymentChart, DeploymentChartObserver, NativeDeploymentRecording } from './chart.ts';
 
 export const DEPLOYMENT_EVENT = 'iac.resource.progress';
 export type DeploymentStatus = 'pending' | 'deploying' | 'ready' | 'failed' | 'skipped' | 'deleted';
@@ -38,4 +38,6 @@ export interface DeploymentRecorder extends CombinedRecorder, DeploymentChartObs
   getEvents(afterSequence?: number): readonly DeploymentEvent[];
   subscribe(listener: (event: DeploymentEvent) => void): () => void;
   subscribeChart(listener: (chart: DeploymentChart) => void): () => void;
+  getRecording(): NativeDeploymentRecording | undefined;
+  subscribeRecording(listener: (recording: NativeDeploymentRecording) => void): () => void;
 }

@@ -15,6 +15,7 @@ import type { ExecutionFailure } from './execution/types.ts';
 import type { FailureStrategy, Plan, ResourceAdapter, Stack, StateStore } from './types.ts';
 import { fingerprintPlan } from './master/plan.ts';
 import { reconcileEngine } from './execution/reconciliation.ts';
+import { INTERNAL_STAGE_RECORDER_ID } from './execution/live-recording.ts';
 
 export interface ApplyResult {
   ok: boolean;
@@ -47,7 +48,7 @@ export class InfraEngine {
     this.maxConcurrency = concurrencyLimit(options.maxConcurrency);
     this.recorders = [...(options.recorders ?? [])];
     if (new Set(this.recorders.map(recorder => recorder.id)).size !== this.recorders.length) throw new Error('Duplicate deployment recorder IDs');
-    if (this.recorders.some(recorder => [INTERNAL_CONTROL_RECORDER_ID, INTERNAL_CHART_RECORDER_ID].includes(recorder.id))) throw new Error('The internal recorder ID is reserved');
+    if (this.recorders.some(recorder => [INTERNAL_CONTROL_RECORDER_ID, INTERNAL_CHART_RECORDER_ID, INTERNAL_STAGE_RECORDER_ID].includes(recorder.id))) throw new Error('The internal recorder ID is reserved');
     this.chartObservers = [...(options.chartObservers ?? [])];
     if (this.chartObservers.some(observer => !observer || typeof observer.id !== 'string' || !observer.id.trim() || typeof observer.onChart !== 'function')) throw new Error('A deployment chart observer needs an ID and onChart method');
     if (new Set(this.chartObservers.map(observer => observer.id)).size !== this.chartObservers.length) throw new Error('Duplicate deployment chart observer IDs');

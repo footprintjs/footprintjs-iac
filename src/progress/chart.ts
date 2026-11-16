@@ -13,7 +13,15 @@ export interface DeploymentChart {
   readonly structure: NativeDeploymentStructure; readonly resources: readonly DeploymentResourceStages[];
 }
 /** IaC's explicit observer bridge; this is not a FootPrint CombinedRecorder hook. */
-export interface DeploymentChartObserver { readonly id: string; onChart(chart: DeploymentChart): void }
+export interface NativeDeploymentRecording {
+  readonly snapshot: Record<string, unknown>; readonly structure: NativeDeploymentStructure;
+  readonly provenance: { readonly runId: string; readonly stack: string; readonly graphDigest?: string };
+}
+export interface DeploymentChartObserver {
+  readonly id: string; onChart(chart: DeploymentChart): void;
+  /** Bounded metadata from actual native hooks/snapshots; partial observations never authorize deployment. */
+  onRecording?(recording: NativeDeploymentRecording): void;
+}
 
 const actions = new Set<Action>(['create', 'update', 'verify', 'delete', 'noop']);
 const stageTypes = new Set(['stage', 'decider', 'selector', 'fork', 'streaming', 'subflow', 'loop']);
