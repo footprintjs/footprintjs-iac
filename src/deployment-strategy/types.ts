@@ -2,6 +2,8 @@ import type { CheckRunner } from '../checks/types.ts';
 import type { CombinedRecorder } from 'footprintjs';
 import type { DeploymentChartObserver } from '../progress/chart.ts';
 import type {MasterSource,MasterArtifact} from '../master/types.ts';
+import type { AdapterFlowContext } from '../adapter-flow/types.ts';
+import type { FlowChart } from 'footprintjs';
 
 /** A host-registered deployment controller. A request selects its ID, never code or credentials. */
 export interface DeploymentStrategyAdapter {
@@ -38,6 +40,9 @@ export interface SystemdDeploymentHost {
   inspect(): Promise<SystemdHostObservation>;
   applyUnit?(request: SystemdUnitApplyRequest, context: SystemdApplyContext): Promise<void>;
   applyUnits?(request: SystemdGroupApplyRequest, context: SystemdGroupApplyContext): Promise<void>;
+  /** Pure native chart factory; the consumer forwards it synchronously without executing it. */
+  createApplyFlow?(request: SystemdUnitApplyRequest | SystemdGroupApplyRequest, context: SystemdApplyContext | SystemdGroupApplyContext,
+    binding: AdapterFlowContext & { components: readonly {componentId:string;unit:string}[] }): FlowChart<any,any>;
   /** Registered observation/settlement port. It must not apply, restart or repair units. */
   reconcileUnits?(request: SystemdGroupApplyRequest, context: SystemdGroupApplyContext): Promise<SystemdOutcomeInspection>;
   reconcileUnit?(request: SystemdUnitApplyRequest, context: SystemdApplyContext): Promise<SystemdOutcomeInspection>;

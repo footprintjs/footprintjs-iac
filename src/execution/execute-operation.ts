@@ -2,6 +2,7 @@ import type { FailureStrategy, Observation, PlannedOperation, ResourceAdapter, S
 import { errorMessage, fingerprint } from '../util.ts';
 import { ExecutionPersistence, PersistenceError } from './persistence.ts';
 import type { OperationExecutor, OperationResult } from './types.ts';
+import { createNativeOperationChart } from './create-native-operation-chart.ts';
 
 export interface OperationExecutionOptions {
   adapters: ReadonlyMap<string, ResourceAdapter>;
@@ -15,7 +16,10 @@ export interface OperationExecutionOptions {
 
 /** Resource lifecycle policy is independent of native chart construction and batch scheduling. */
 export function createOperationExecutor(options: OperationExecutionOptions): OperationExecutor {
-  return operation => executeOperation(operation, options);
+  const execute:OperationExecutor=operation => executeOperation(operation, options);
+  execute.createFlow=(operation,results)=>operation.action!=='delete'&&(options.adapters.get(operation.resource.provider)?.createApplyFlow||options.adapters.get(operation.resource.provider)?.createVerifyFlow)
+    ?createNativeOperationChart(operation,options,results):undefined;
+  return execute;
 }
 
 async function executeOperation(operation: PlannedOperation, options: OperationExecutionOptions): Promise<OperationResult> {

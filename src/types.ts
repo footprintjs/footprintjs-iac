@@ -1,3 +1,5 @@
+import type { AdapterApplyFlowFactory } from './adapter-flow/types.ts';
+
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type JsonObject = { [key: string]: Json };
 
@@ -42,6 +44,10 @@ export interface ResourceAdapter {
   readonly supportsSafeRetry?: boolean;
   observe(resource: Resource, context: ProviderContext): Promise<Observation>;
   apply(resource: Resource, context: ProviderContext): Promise<void>;
+  /** Optional native child chart. Legacy callbacks remain opaque; this factory performs no I/O. */
+  createApplyFlow?: AdapterApplyFlowFactory<Resource, ProviderContext>;
+  /** Observation-only child chart, including no-op deployments. It must not apply or acquire an effect permit. */
+  createVerifyFlow?: AdapterApplyFlowFactory<Resource, ProviderContext>;
   remove(resource: Resource, context: ProviderContext): Promise<void>;
   waitReady(resource: Resource, context: ProviderContext): Promise<void>;
   /** Explicit observation-only settlement of an earlier uncertain effect. Never applies or repairs. */

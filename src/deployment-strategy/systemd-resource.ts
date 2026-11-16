@@ -3,10 +3,14 @@ import type { ProviderContext, Resource, ResourceAdapter } from '../types.ts';
 import { factsDigest, readSystemdObservation } from './data.ts';
 import { admitSystemdOutcomeProof } from './outcome-proof.ts';
 import type { SystemdDeploymentHost, SystemdDeploymentOptions, SystemdHostObservation, SystemdUnitObservation } from './types.ts';
+import { createSystemdApplyChart } from './create-systemd-apply-chart.ts';
+import { createAdapterFlowChart } from '../adapter-flow/create-chart.ts';
 
 /** Systemd provider semantics over fixed private host recipes. No unit or host creation/removal. */
 export class SystemdResourceAdapter implements ResourceAdapter {
   readonly name = 'systemd'; readonly supportsSafeRetry = false; readonly scope: string;
+  readonly createApplyFlow?: ResourceAdapter['createApplyFlow'];
+  readonly createVerifyFlow: NonNullable<ResourceAdapter['createVerifyFlow']>;
   private readonly host: SystemdDeploymentHost;
   private groupPermit:SystemdHostObservation|undefined;
   private readonly permits = new Map<string,SystemdUnitObservation>();
@@ -18,7 +22,37 @@ export class SystemdResourceAdapter implements ResourceAdapter {
     this.registration=registration;this.units=units;this.mode=privateMode;
     this.scope = `systemd-pinned:${fingerprint(registration)}`;
     this.host = { inspect:host.inspect.bind(host), ...(host.applyUnit?{applyUnit:host.applyUnit.bind(host)}:{}), ...(host.applyUnits?{applyUnits:host.applyUnits.bind(host)}:{}),
+      ...(host.createApplyFlow?{createApplyFlow:host.createApplyFlow.bind(host)}:{}),
       ...(host.reconcileUnit?{reconcileUnit:host.reconcileUnit.bind(host)}:{}),...(host.reconcileUnits?{reconcileUnits:host.reconcileUnits.bind(host)}:{}) };
+    this.createVerifyFlow=(resource,_context,binding)=>{
+      const selected=this.mode==='group'?(this.group(resource),this.units):[this.binding(resource)];
+      return createAdapterFlowChart(binding,[{id:'systemd-verify-components',name:'Inspect registered service processes',phase:'observe',run:async scope=>{
+        const measured=await this.inspect();
+        if(selected.some(unit=>{const actual=measured.units.find(row=>row.name===unit.name)!;return actual.activeState!=='active'||actual.appliedSpecDigest!==fingerprint(resource.spec);}))throw Error('systemd-component-not-verified');
+        for(const unit of selected){const actual=measured.units.find(row=>row.name===unit.name)!;
+          scope.progress(binding,'observe','passed',{componentId:unit.id,installed:actual.exists,running:actual.activeState==='active'});
+        }
+      }}]);
+    };
+    if(this.host.createApplyFlow)this.createApplyFlow=(resource,context,binding)=>{
+      const selected=this.mode==='group'?(this.group(resource),this.units):[this.binding(resource)];
+      const permit=this.mode==='group'?this.groupPermit:{identityDigest:this.registration.identityDigest,units:selected.map(unit=>this.permits.get(unit.name)!)};
+      // An absent permit is represented by a refused chart; factories do not acquire authority or inspect hosts.
+      const captured=permit&&permit.units.every(Boolean)?structuredClone(permit):undefined;
+      const request=this.mode==='group'?{units:selected.map(unit=>unit.name),desiredSpecDigest:fingerprint(resource.spec),releaseDigest:String(resource.spec.releaseDigest)}
+        :{unit:selected[0]!.name,desiredSpecDigest:fingerprint(resource.spec),releaseDigest:String(resource.spec.releaseDigest)};
+      const hostContext=this.mode==='group'?{operationId:context.operationId,expectedIdentityDigest:this.registration.identityDigest,expectedUnits:captured?.units??[]}
+        :{operationId:context.operationId,expectedIdentityDigest:this.registration.identityDigest,expectedUnit:captured?.units[0]!};
+      const child=this.host.createApplyFlow!(request,hostContext,{...binding,components:selected.map(unit=>({componentId:unit.id,unit:unit.name}))});
+      return createSystemdApplyChart(binding,child,async scope=>{
+        const fresh=await this.inspect();
+        const active=this.mode==='group'?this.groupPermit:{identityDigest:this.registration.identityDigest,units:selected.map(unit=>this.permits.get(unit.name)!)};
+        const relevant={identityDigest:fresh.identityDigest,units:selected.map(unit=>fresh.units.find(row=>row.name===unit.name)!)};
+        if(!captured||!active||!active.units.every(Boolean)||factsDigest(relevant)!==factsDigest(captured)||factsDigest(active)!==factsDigest(captured))throw Error('systemd-review-changed');
+        if(this.mode==='group')this.groupPermit=undefined;else this.permits.delete(selected[0]!.name);
+        for(const unit of selected){const actual=relevant.units.find(row=>row.name===unit.name)!;scope.progress(binding,'revalidate','passed',{componentId:unit.id,installed:actual.exists,running:actual.activeState==='active'});}
+      });
+    };
   }
   async inspect(): Promise<SystemdHostObservation> {
     let observed: SystemdHostObservation;

@@ -5,6 +5,8 @@ import type { HostProcessRunner } from '../platform-access/types.ts';
 import { readSystemdObservation, sha, unitName } from './data.ts';
 import { SYSTEMD_HOST_PROGRAM } from './host-program.ts';
 import type { SystemdDeploymentHost, SystemdHostObservation, SystemdUnitObservation } from './types.ts';
+import { createSystemdHostApplyChart } from './create-host-apply-chart.ts';
+import type { SystemdApplyContext, SystemdGroupApplyContext, SystemdGroupApplyRequest, SystemdUnitApplyRequest } from './types.ts';
 
 export interface SystemdHostUnitRegistration { name: string; workingDirectory: string }
 export interface SystemdHostOptions {
@@ -71,7 +73,33 @@ export function createSystemdHost(options: SystemdHostOptions): RegisteredSystem
       return value.units;
     } catch { return refuse(); }
   };
+  const admitted = (request:SystemdUnitApplyRequest|SystemdGroupApplyRequest,context:SystemdApplyContext|SystemdGroupApplyContext) => {
+    sha(request.desiredSpecDigest);sha(request.releaseDigest);identifier(context.operationId,'systemd operation');
+    const grouped='units'in request;
+    if(grouped&&(request.units.length!==names.length||request.units.some((name,index)=>name!==names[index]))||!grouped&&!names.includes(request.unit))refuse();
+    const observations=expected(context.expectedIdentityDigest,'expectedUnits'in context?context.expectedUnits:[context.expectedUnit]);
+    const selected=grouped?request.units:[request.unit];
+    if(observations.length!==selected.length||observations.some((unit,index)=>unit.name!==selected[index]))refuse();
+    return grouped?{...context,expectedUnits:observations}:{...context,expectedUnit:observations[0]};
+  };
   return {
+    createApplyFlow(request,context,binding){
+      // Capture primitive request data without executing a process or acquiring a permit.
+      const action=structuredClone(request),capturedContext=structuredClone(context),capturedBinding=structuredClone(binding);
+      return createSystemdHostApplyChart(action,capturedContext,capturedBinding,{
+        async command(phase,request,context){
+          const verified=admitted(request,context),result=await call({operation:`flow-${phase}`,request,context:verified});
+          if(result.ok!==true||Object.keys(result).length!==1)refuse();
+        },
+        async observe(unit,request,context){
+          const verified=admitted(request,context),result=await call({operation:'flow-observe',selectedUnit:unit,request,context:verified});
+          if(Object.keys(result).sort().join(',')!=='identityDigest,unit')refuse();
+          const value=readSystemdObservation({identityDigest:result.identityDigest,units:[result.unit]});
+          if(value.identityDigest!==context.expectedIdentityDigest||value.units[0]?.name!==unit||!value.units[0]?.exists||value.units[0]?.activeState!=='active'||value.units[0]?.appliedSpecDigest!==request.desiredSpecDigest)refuse();
+          return value.units[0]!;
+        },
+      });
+    },
     inspectBoundary,
     async inspectJobs() {
       try {

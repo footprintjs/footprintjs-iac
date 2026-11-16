@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { InfraEngine, FileStateStore, KubernetesAdapter, backwalk, loadEvidence, replay, type ApplyResult, type JsonObject, type Plan } from '../../src/index.ts';
 import { createNeoStack, NEO_NAMESPACE } from './stack.ts';
 import { smoke } from './smoke.mjs';
+import { readNeoNativeMutationFailure } from './native-mutation-failure.ts';
 
 const usage = 'Usage: node integration/neo/run-trial.ts --context LOCAL_CONTEXT\nKUBECONFIG is inherited. This runs only the local seeded Neo fixture and leaves its workloads available.';
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -213,8 +214,8 @@ export async function runNeoTrial(context: string): Promise<string> {
     assert.equal(before.owned, true);
     assert.equal(before.ready, true);
 
-    // An invalid replica count is rejected atomically by the real Kubernetes API.
-    // This tests failure evidence without replacing pods or sending business actions.
+    // Request an invalid replica count and retain the actual command boundary.
+    // Bounded native failure evidence does not classify a server rejection versus transport failure.
     const invalid = structuredClone(desired);
     const invalidDeployment = invalid.resources.find(resource => resource.id === 'neo-app')!;
     (invalidDeployment.spec.spec as JsonObject).replicas = -1;
@@ -222,14 +223,15 @@ export async function runNeoTrial(context: string): Promise<string> {
     const failed = await engine.apply(invalid);
     report.evidencePath = failed.evidencePath;
     report.tracePath = failed.tracePath;
-    await step('API rejects invalid deployment', {
+    const nativeFailure=await readNeoNativeMutationFailure(failed,invalidDeployment);
+    await step('invalid desired deployment fails with a recorded mutation outcome', {
       ok: !failed.ok, expectedFailure: true, operationSucceeded: failed.ok, runId: failed.runId,
-      failure: failed.failure, evidencePath: failed.evidencePath, tracePath: failed.tracePath,
+      failure: failed.failure, nativeFailure, evidencePath: failed.evidencePath, tracePath: failed.tracePath,
     });
-    assert.equal(failed.ok, false, 'The invalid deployment must fail against the API.');
+    assert.equal(failed.ok, false, 'The invalid desired deployment must not be reported as successful.');
     assert.equal(failed.failure?.resourceId, 'neo-app');
-    assert.match(failed.failure?.message ?? '', /replicas/i);
-    assert.match(failed.failure?.message ?? '', /invalid|must be|greater than/i);
+    assert.equal((invalidDeployment.spec.spec as JsonObject).replicas,-1);
+    assert.equal(nativeFailure.status,'unconfirmed');
     assert.equal(failed.traceStatus?.flushed, true, 'The official runtime trace must flush.');
     assert.equal(failed.traceStatus?.failed, 0);
     assert.ok(failed.tracePath);
@@ -258,9 +260,9 @@ export async function runNeoTrial(context: string): Promise<string> {
     const retained = await adapter.observe(deployment, inspection);
     assert.equal(retained.owned, true);
     assert.equal(retained.ready, true);
-    assert.equal(retained.fingerprint, before.fingerprint, 'The rejected update must leave the declared deployment fields unchanged.');
-    await step('existing deployment survives rejection', { ok: true, ready: retained.ready, desiredFieldsUnchanged: true });
-    await step('app smoke after rejection', { ok: true, result: await smoke(endpoints.node, endpoints.python) });
+    assert.equal(retained.fingerprint, before.fingerprint, 'The failed update must leave the declared deployment fields unchanged.');
+    await step('existing deployment survives the failed change', { ok: true, ready: retained.ready, desiredFieldsUnchanged: true });
+    await step('app smoke after failed change', { ok: true, result: await smoke(endpoints.node, endpoints.python) });
 
     const restored = await engine.apply(desired);
     await recordApply('restore valid desired state', restored);

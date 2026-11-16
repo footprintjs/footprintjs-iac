@@ -4,6 +4,43 @@ Current local library: **footprintjs-iac 0.5.0-alpha.2**, using pinned **FootPri
 
 These are recorded results from the development laptop, not a claim that a fresh clone has already run them. Generated `.artifacts/` evidence, kubeconfig, state and logs are private local outputs and are intentionally excluded from Git. Reproduce the checks directly on your laptop with the [sharing guide](docs/SHARING.md). Automatic GitHub CI triggers are disabled for now; the saved workflow is manual-only. The real Neo integration runs directly through the local IaC command and requires a separately authorized private Neo checkout and local Docker/kind.
 
+## Native adapters and registered system topology — 2026-11-16
+
+Typecheck, build and source-context freshness pass. The complete library suite
+passes **752 tests with one existing Linux/root-UID skip**, zero failures
+(753 total). Native resource and provider charts share one FootPrint execution;
+systemd keeps one grouped restart and records individual post-effect unit reads.
+No-ops perform fresh native unit verification without restarting services.
+Kubernetes retains conditional writes, ownership/UID/field guards and safe retry.
+Selected provider entrypoints and a provider-free core are isolated imports.
+
+The registered topology model keeps placement, existing/managed/embedded origin,
+installed/running/connected facts and communication distinct from deployment
+order. The reusable systemd default describes registered units and host/runtime
+boundaries without guessing application roles, data stores or connections.
+Complete native file order selects terminal component facts. Missing/foreign
+captures, omitted/reordered observer history, false parent bindings and pre-effect
+observations cannot supply current green facts. Old callback recordings remain
+readable with explicit limits on unavailable component detail.
+
+A real local Neo app at application commit
+`73b399d879fb9fb9f955305b28659e3ad5913a31` was qualified using the current
+infrastructure consumer and a pinned systemd fixture: seven explicitly declared
+components, six measured connections, one atomic service transaction, fresh LDAPS
+login, owned access, foreign 404 and anonymous 401. A real uncached sidecar SQLite
+read failed after a task-owned file permission change, and recovered after
+restoration. The new deployment was a recorded no-op with unchanged process
+invocations, seed DB hashes and the original conversation. Linux/container and
+LDAP preparation precede the recorded existing-service deployment; this does
+not claim to provision production hardware or qualify production AD/model access.
+
+Lens uses admitted outcomes. The Neo check consumer currently publishes terminal
+per-check results; it does not invent individual Checking states from suite-wide
+activity. External checker internals remain outside their native callback boundary.
+The independent local report and retained native histories are under
+`outputs/native-system-graph` in the development workspace; private credentials
+and histories are excluded from Git. CI and npm publication remain off.
+
 ## Versioned onboarding — 2026-11-16
 
 The full library suite passes **711 tests, with one existing Linux/root-UID

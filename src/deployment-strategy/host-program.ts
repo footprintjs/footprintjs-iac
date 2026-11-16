@@ -5,6 +5,7 @@ MARKER = '# Managed by footprint-iac systemd deployment v1'
 MANAGED = '90-footprint-iac.conf'
 HEX = re.compile(r'^[a-f0-9]{64}$')
 NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.@-]{0,126}\.service$')
+ALLOW_PENDING_RELOAD = False
 def sha(value): return hashlib.sha256(value).hexdigest()
 def canonical(value): return json.dumps(value,sort_keys=True,separators=(',',':')).encode()
 def run(args):
@@ -37,7 +38,7 @@ def inspect_unit(name):
  values=dict(line.split('=',1) for line in p.stdout.splitlines() if '=' in line)
  if values.get('LoadState')=='not-found':
   return {'name':name,'exists':False,'fragmentPath':None,'fragmentDigest':None,'configurationDigest':None,'activeState':values.get('ActiveState','inactive'),'invocationId':None,'appliedSpecDigest':None,'workingDirectory':None}
- if p.returncode or values.get('LoadState')!='loaded' or values.get('Id')!=name or values.get('NeedDaemonReload')!='no': raise ValueError('loaded manager configuration required')
+ if p.returncode or values.get('LoadState')!='loaded' or values.get('Id')!=name or values.get('NeedDaemonReload') not in (['no','yes'] if ALLOW_PENDING_RELOAD else ['no']): raise ValueError('loaded manager configuration required')
  fragment=values.get('FragmentPath','')
  data=path_bytes(fragment)
  dropins=[]
@@ -70,6 +71,7 @@ def inspect_registered(name, directories):
  return value
 def projected(unit): return {key:value for key,value in unit.items() if key!='workingDirectory'}
 def main():
+ global ALLOW_PENDING_RELOAD
  request=json.loads(sys.stdin.read(65537))
  units=request.get('units')
  if not isinstance(units,list) or not units or len(units)>32 or len(set(units))!=len(units) or any(not isinstance(name,str) or not NAME.fullmatch(name) for name in units): raise ValueError('registered units required')
@@ -88,18 +90,35 @@ def main():
    job=values['Job'].split(' ')[0]
    jobs.append({'unit':name,'jobId':None if job in ['', '0'] else job})
   print(json.dumps({'identityDigest':identity,'jobs':jobs},separators=(',',':')));return
- if request.get('operation') not in ['apply','apply-group']: raise ValueError('fixed operation required')
+ operation=request.get('operation')
+ if operation not in ['apply','apply-group','flow-revalidate','flow-configure','flow-reload','flow-start','flow-observe']: raise ValueError('fixed operation required')
  action=request['request']; context=request['context']
- names=action['units'] if request['operation']=='apply-group' else [action['unit']]
- expected=context['expectedUnits'] if request['operation']=='apply-group' else [context['expectedUnit']]
+ grouped='units' in action
+ names=action['units'] if grouped else [action['unit']]
+ expected=context['expectedUnits'] if grouped else [context['expectedUnit']]
  if not isinstance(names,list) or not names or len(names)!=len(set(names)) or any(name not in units for name in names) or len(expected)!=len(names): raise ValueError('approved unit group required')
- if request['operation']=='apply-group' and names!=units: raise ValueError('complete approved group required')
+ if grouped and names!=units: raise ValueError('complete approved group required')
+ if identity!=context['expectedIdentityDigest']: raise ValueError('fresh reviewed identity required')
+ if operation=='flow-observe':
+  name=request.get('selectedUnit')
+  if name not in names: raise ValueError('registered observed unit required')
+  observed=inspect_registered(name,directories);original=expected[names.index(name)]
+  if any(observed[key]!=original[key] for key in ['name','exists','fragmentPath','fragmentDigest','configurationDigest']): raise ValueError('registered configuration changed')
+  if observed['activeState']!='active' or observed['appliedSpecDigest']!=action['desiredSpecDigest']: raise ValueError('active process marker unconfirmed')
+  print(json.dumps({'identityDigest':identity,'unit':projected(observed)},separators=(',',':')));return
+ ALLOW_PENDING_RELOAD=operation=='flow-reload'
  if identity!=context['expectedIdentityDigest'] or [projected(inspect_registered(name,directories)) for name in names]!=expected: raise ValueError('fresh reviewed identities required')
+ if operation=='flow-revalidate':print('{"ok":true}');return
  content=marker_content(action['desiredSpecDigest'],action['releaseDigest'])
  for name in names:
   path=marker_path(name)
   if path.parent.exists() and (path.parent.is_symlink() or not path.parent.is_dir() or path.parent.resolve()!=path.parent): raise ValueError('managed directory required')
   validate_marker(path)
+ if operation in ['flow-reload','flow-start']:
+  if any(path_bytes(marker_path(name))!=content for name in names): raise ValueError('intended managed marker required')
+  command=['systemctl','daemon-reload'] if operation=='flow-reload' else ['systemctl','restart']+names
+  if run(command).returncode: raise ValueError('systemd effect unconfirmed')
+  print('{"ok":true}');return
  for name in names:
   path=marker_path(name);path.parent.mkdir(mode=0o755,parents=True,exist_ok=True)
   if path.parent.resolve()!=path.parent: raise ValueError('canonical managed directory required')
@@ -113,6 +132,7 @@ def main():
    finally:os.close(directory)
   finally:
    if os.path.exists(temporary):os.unlink(temporary)
+ if operation=='flow-configure':print('{"ok":true}');return
  for command in [['systemctl','daemon-reload'],['systemctl','restart']+names]:
   if run(command).returncode:raise ValueError('systemd effect unconfirmed')
  for name in names:

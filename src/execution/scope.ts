@@ -1,8 +1,12 @@
-import { ScopeFacade, type ScopeFactory } from 'footprintjs/advanced';
+import { type ScopeFactory } from 'footprintjs/advanced';
+import { AdapterFlowScope } from '../adapter-flow/scope.ts';
 import type { ExecutionFailure, OperationResult } from './types.ts';
 
 /** Narrow native scope adapter: every value crosses FootPrint's recording funnel. */
-export class ExecutionScope extends ScopeFacade {
+export class ExecutionScope extends AdapterFlowScope {
+  get nativeNeedsEffect(): boolean { return this.getValue('nativeNeedsEffect') as boolean; }
+  get nativeRetry(): boolean { return this.getValue('nativeRetry') as boolean; }
+  get nativeHasError(): boolean { return this.getValue('nativeHasError') as boolean; }
   get failed(): boolean { return this.getValue('failed') as boolean; }
   get failure(): ExecutionFailure | null { return this.getValue('failure') as ExecutionFailure | null; }
 

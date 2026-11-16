@@ -22,7 +22,7 @@ export interface ApplyResult {
   plan: Plan;
   evidencePath: string;
   tracePath?: string;
-  /** Best-effort runtime evidence, separate from the durable operation journal. */
+  /** Separate from the durable operation journal. Native adapter runs stop on requested capture loss. */
   traceStatus?: { entries: number; failed: number; flushed: boolean; error?: string };
   chartStatus?: { published: boolean; failed: number };
   failure: ExecutionFailure | null;
@@ -94,12 +94,12 @@ export class InfraEngine {
       const deploymentChart = readDeploymentChart({ version: 1, runId, stack: requested.name,
         ...(graph ? { graphDigest: (graph as Stack & { digest: string }).digest } : {}),
         structure: built.chart.buildTimeStructure, resources: built.resources });
-      const recorded = await runApplyChart(built.chart, runId, this.traceDirectory, this.recorders, { chart: deploymentChart, observers: this.chartObservers });
+      const recorded = await runApplyChart(built.chart, runId, this.traceDirectory, this.recorders, { chart: deploymentChart, observers: this.chartObservers },built.native);
       const evidencePath = await this.store.saveEvidence(runId, {
         version: 1, runId, stack: requested.name, ...recorded,
         ...(graph ? { graph } : {}),
       });
-      const failure = recorded.snapshot.sharedState.failure as ExecutionFailure | null;
+      const failure = recorded.executionFailure?{resourceId:'',message:recorded.executionFailure}:recorded.snapshot.sharedState.failure as ExecutionFailure | null;
       return { ok: !failure, runId, plan, evidencePath, failure, results, chartStatus: recorded.chartStatus,
         ...(recorded.tracePath ? { tracePath: recorded.tracePath, traceStatus: recorded.traceStatus } : {}) };
     });

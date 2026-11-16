@@ -2,6 +2,9 @@ import { execFile } from 'node:child_process';
 import type { Json, JsonObject, Observation, ProviderContext, Resource, ResourceAdapter } from '../types.ts';
 import { fingerprint } from '../util.ts';
 import { canMigrateKubernetesBootstrap } from './kubernetes-bootstrap.ts';
+import { createKubernetesApplyChart } from './create-kubernetes-apply-chart.ts';
+import type { AdapterFlowContext } from '../adapter-flow/types.ts';
+import { createAdapterFlowChart } from '../adapter-flow/create-chart.ts';
 
 export interface CommandResult { stdout: string; stderr?: string }
 export interface CommandOptions { input?: string; timeoutMs: number }
@@ -68,6 +71,7 @@ function declaredProjection(actual: Json | undefined, desired: Json): Json {
 }
 
 interface Target { kind: string; name: string; namespace?: string; path: string }
+interface PreparedApply { target:Target; live:JsonObject|undefined; desired:JsonObject }
 
 /**
  * Narrow Kubernetes adapter for a local IaC prototype.
@@ -196,6 +200,28 @@ export class KubernetesAdapter implements ResourceAdapter {
   }
 
   async apply(resource: Resource, context: ProviderContext): Promise<void> {
+    await this.mutatePrepared(await this.prepareApply(resource,context));
+  }
+
+  createApplyFlow(resource:Resource,context:ProviderContext,binding:AdapterFlowContext){
+    const captured=structuredClone(resource),selectedContext={...context};let prepared:PreparedApply|undefined;
+    return createKubernetesApplyChart(binding,{
+      prepare:async()=>{prepared=await this.prepareApply(captured,selectedContext);return {exists:!!prepared.live,owned:!prepared.live||this.owned(prepared.live,captured,selectedContext),...(prepared.live?{ready:this.ready(prepared.live,captured)}:{})};},
+      mutate:async()=>{if(!prepared)throw Error('Kubernetes mutation preconditions missing');await this.mutatePrepared(prepared);},
+      wait:()=>this.waitReady(captured,selectedContext),observe:()=>this.observe(captured,selectedContext),
+    });
+  }
+
+  createVerifyFlow(resource:Resource,context:ProviderContext,binding:AdapterFlowContext){
+    const captured=structuredClone(resource),selectedContext={...context};
+    return createAdapterFlowChart(binding,[{id:'kubernetes-verify-component',name:'Inspect Kubernetes component readiness',phase:'observe',run:async scope=>{
+      const observed=await this.observe(captured,selectedContext);
+      if(!observed.exists||observed.owned!==true||observed.fingerprint!==fingerprint(captured.spec)||observed.ready!==true)throw Error('Kubernetes component not verified');
+      scope.progress(binding,'observe','passed',{componentId:binding.resourceId,installed:observed.exists,running:observed.ready});
+    }}]);
+  }
+
+  private async prepareApply(resource:Resource,context:ProviderContext):Promise<PreparedApply>{
     const target = this.target(resource);
     const live = await this.read(resource);
     if (live && !this.owned(live, resource, context)) throw new Error(`Refusing to modify unowned Kubernetes resource ${target.kind}/${target.name}.`);
@@ -210,6 +236,12 @@ export class KubernetesAdapter implements ResourceAdapter {
       // These are API preconditions: a replacement or concurrent change rejects the operation.
       metadata.uid = current.uid;
       metadata.resourceVersion = current.resourceVersion;
+    }
+    return {target,live,desired};
+  }
+
+  private async mutatePrepared({target,live,desired}:PreparedApply):Promise<void>{
+    if(live){
       const args = ['apply', '--server-side=true', '--field-manager', manager, '-f', '-', '-o', 'json'];
       const body = JSON.stringify(desired);
       try {

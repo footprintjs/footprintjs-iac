@@ -275,6 +275,42 @@
     "./onboarding/versions/node": {
       "types": "./dist/src/onboarding-versions/node.d.ts",
       "import": "./dist/src/onboarding-versions/node.js"
+    },
+    "./core": {
+      "types": "./dist/src/core.d.ts",
+      "import": "./dist/src/core.js"
+    },
+    "./adapter-flow": {
+      "types": "./dist/src/adapter-flow/index.d.ts",
+      "import": "./dist/src/adapter-flow/index.js"
+    },
+    "./adapter-flow/node": {
+      "types": "./dist/src/adapter-flow/node.d.ts",
+      "import": "./dist/src/adapter-flow/node.js"
+    },
+    "./deployment-strategy/systemd": {
+      "types": "./dist/src/deployment-strategy/systemd.d.ts",
+      "import": "./dist/src/deployment-strategy/systemd.js"
+    },
+    "./deployment-strategy/kubernetes": {
+      "types": "./dist/src/deployment-strategy/kubernetes.d.ts",
+      "import": "./dist/src/deployment-strategy/kubernetes.js"
+    },
+    "./system-topology": {
+      "types": "./dist/src/system-topology/index.d.ts",
+      "import": "./dist/src/system-topology/index.js"
+    },
+    "./system-topology/node": {
+      "types": "./dist/src/system-topology/node.d.ts",
+      "import": "./dist/src/system-topology/node.js"
+    },
+    "./deployment-strategy/registry": {
+      "types": "./dist/src/deployment-strategy/registry.d.ts",
+      "import": "./dist/src/deployment-strategy/registry.js"
+    },
+    "./progress/node": {
+      "types": "./dist/src/progress/node.d.ts",
+      "import": "./dist/src/progress/node.js"
     }
   },
   "files": [

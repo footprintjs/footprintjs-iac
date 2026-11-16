@@ -1,5 +1,6 @@
 import { identifier } from '../graph/data.ts';
 import type { DeploymentStrategyAdapter, DeploymentStrategyDescription } from './types.ts';
+export type * from './types.ts';
 
 export function captureDeploymentAdapter(adapter: DeploymentStrategyAdapter): DeploymentStrategyAdapter {
   const id = identifier(adapter?.id, 'deployment strategy ID'), kind = identifier(adapter?.kind, 'deployment strategy kind');

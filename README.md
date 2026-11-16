@@ -28,6 +28,14 @@ the existing planner then assesses and deploys only the affected resources.
 Pending owners block the switch, while an exact no-op preserves the current
 head and Ready run. Activation itself performs no resource deployment.
 
+Optional [native adapter subflows](src/adapter-flow/README.md) expose the real
+provider boundaries inside one FootPrint deployment recording. Import `/core`
+and only the selected `/deployment-strategy/systemd` or
+`/deployment-strategy/kubernetes` implementation; legacy barrels remain available.
+The [registered system topology](src/system-topology/README.md) separately maps
+measured component and connection evidence onto servers, clusters and nested
+boundaries, including verification of unchanged resources.
+
 The host-only [platform bootstrap API](docs/platform-bootstrap.md) separates server
 access/discovery, installation strategies and cluster lifecycle adapters. It
 records Create/Find → connection publication → Connect → Verify, including

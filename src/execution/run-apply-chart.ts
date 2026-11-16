@@ -8,8 +8,8 @@ import { chartObserver, type ChartPublication } from './chart-observer.ts';
 
 export const INTERNAL_CONTROL_RECORDER_ID = 'iac-internal-control-dependencies';
 
-/** Runtime capture is best-effort and independent of the operation journal's durability. */
-export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runId: string, traceDirectory?: string, recorders: readonly CombinedRecorder[] = [], publication?: ChartPublication) {
+/** Native adapter runs fail on requested capture loss; legacy callback capture remains best-effort. */
+export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runId: string, traceDirectory?: string, recorders: readonly CombinedRecorder[] = [], publication?: ChartPublication, strictCapture = false) {
   const tracePath = traceDirectory ? join(traceDirectory, `${runId}.jsonl`) : undefined;
   let traceSink: FileSink | undefined;
   let traceError: string | undefined;
@@ -20,7 +20,7 @@ export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runI
   }
   const executor = new FlowChartExecutor(chart, {
     readTracking: 'full', writeProvenance: 'reads-prefix',
-    ...(traceSink ? { sink: { adapter: traceSink, onFailure: 'report' as const, flush: 'auto' as const } } : {}),
+    ...(traceSink ? { sink: { adapter: traceSink, onFailure: strictCapture?'fail' as const:'report' as const, flush: 'auto' as const } } : {}),
   });
   const control = controlDepRecorder({ id: INTERNAL_CONTROL_RECORDER_ID });
   executor.enableNarrative();
@@ -28,7 +28,12 @@ export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runI
   const bridge = publication ? chartObserver(publication) : undefined;
   if (bridge) executor.attachCombinedRecorder(bridge.recorder);
   for (const recorder of recorders) executor.attachCombinedRecorder(recorder);
-  try { await executor.run(); }
+  let executionFailure: string|undefined;
+  try {
+    if(strictCapture&&tracePath&&!traceSink)throw Error('Native capture unavailable');
+    await executor.run();
+  }
+  catch(error){if(!strictCapture)throw error;executionFailure='native-execution-or-capture-incomplete';}
   finally {
     if (traceSink) {
       try { await traceSink.close(); }
@@ -42,13 +47,12 @@ export async function runApplyChart<TScope>(chart: FlowChart<void, TScope>, runI
     flushed: traceSink !== undefined && (snapshot.sink?.failed ?? 0) === 0 && traceExtraFailures === 0,
     ...((traceError ?? snapshot.sink?.lastError) ? { error: traceError ?? snapshot.sink?.lastError } : {}),
   } : undefined;
-  const controlDeps: Record<string, unknown> = {};
-  for (const commit of snapshot.commitLog) {
-    if (!commit.runtimeStageId) continue;
-    const dependency = control.asLookup()(commit.runtimeStageId);
-    if (dependency) controlDeps[commit.runtimeStageId] = dependency;
-  }
+  if(strictCapture&&traceStatus&&(!traceStatus.flushed||traceStatus.failed))executionFailure='native-execution-or-capture-incomplete';
+  // The recorder's public projection includes actual child executions too;
+  // iterating only the root commit log silently drops mounted branch decisions.
+  const controlDeps = control.toSnapshot().data.controlDeps;
   return { snapshot, structure: chart.buildTimeStructure, controlDeps, decisions: control.getDecisions(), narrative: executor.getNarrativeEntries(),
+    ...(executionFailure?{executionFailure}:{}),
     ...(publication && bridge ? { deploymentChart: publication.chart, chartStatus: { ...bridge.status } } : {}),
     ...(tracePath ? { tracePath, traceStatus } : {}) };
 }

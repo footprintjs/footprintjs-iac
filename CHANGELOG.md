@@ -2,6 +2,10 @@
 
 ## 0.5.0-alpha.2
 
+- Mount optional provider apply/verification charts as native FootPrint subflows; retain durable intent, guarded retries and incomplete-effect reconciliation.
+- Add isolated core, registry and selected systemd/Kubernetes entrypoints; no-op systemd verification records each registered unit without restarting it.
+- Add registered system topology and a reusable systemd default, plus native file-backed component/progress admission for Lens. Keep placement, connections, facts and deployment order separate.
+
 - Add optional versioned onboarding with sealed configuration reviews, explicit activation, stable ownership, expiring CLI fences and retained native histories. Exact configuration no-ops preserve the active head and readiness; missing capture requires reconciliation.
 - Expose optional native recorder and chart-observer ports on the systemd deployment adapter, enabling honest live application-host views without another deployment engine.
 - Preserve existing sealed plans, target identity checks and replay semantics.

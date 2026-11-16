@@ -1,5 +1,7 @@
 import { captureDeploymentAdapter } from './registry.ts';
 import type { DeploymentStrategyAdapter } from './types.ts';
+export { KubernetesAdapter, type KubernetesOptions, type CommandRunner, type CommandOptions, type CommandResult } from '../providers/kubernetes.ts';
+export type { DeploymentStrategyAdapter } from './types.ts';
 
 /** Bridges an existing guarded Kubernetes/Master controller without another execution engine. */
 export function createKubernetesDeploymentAdapter(input: { id: string; controller: Pick<DeploymentStrategyAdapter, 'plan'|'apply'|'snapshot'> }): DeploymentStrategyAdapter {

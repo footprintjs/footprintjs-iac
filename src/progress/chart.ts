@@ -33,20 +33,24 @@ export function readDeploymentChart(input: unknown): DeploymentChart {
   const graphDigest = value('graphDigest');
   if (graphDigest !== undefined && (typeof graphDigest !== 'string' || !/^[a-f0-9]{64}$/.test(graphDigest))) throw Error('Invalid deployment chart graph digest');
   const structure = copyStructure(value('structure'));
-  const stageIds = new Set<string>(), pending = [structure];
+  // Stage IDs are local to a native chart. A loop reference names an existing
+  // stage; a mounted subflow owns a fresh namespace (including repeated mounts).
+  const stageIds = new Set<string>(), pending = [{node:structure,ids:stageIds}], references:{id:string;ids:Set<string>}[]=[];
   while (pending.length) {
-    const node = pending.pop()!;
+    const {node,ids:localIds} = pending.pop()!;
     if (!node || typeof node !== 'object' || Array.isArray(node) || typeof node.id !== 'string' || !node.id
       || typeof node.name !== 'string' || !stageTypes.has(node.type)) throw Error('Invalid native deployment stage');
-    if (stageIds.has(node.id)) throw Error('Duplicate native deployment stage ID');
-    stageIds.add(node.id);
-    if (node.next !== undefined) pending.push(node.next);
+    if(node.isLoopReference){references.push({id:node.id,ids:localIds});continue;}
+    if (localIds.has(node.id)) throw Error('Duplicate native deployment stage ID');
+    localIds.add(node.id);
+    if (node.next !== undefined) pending.push({node:node.next,ids:localIds});
     if (node.children !== undefined) {
       if (!Array.isArray(node.children)) throw Error('Invalid native deployment children');
-      pending.push(...node.children);
+      pending.push(...node.children.map(node=>({node,ids:localIds})));
     }
-    if (node.subflowStructure !== undefined) pending.push(node.subflowStructure);
+    if (node.subflowStructure !== undefined) pending.push({node:node.subflowStructure,ids:new Set<string>()});
   }
+  if(references.some(reference=>!reference.ids.has(reference.id)))throw Error('Native deployment loop refers to an absent stage');
   const ids = new Set<string>();
   const resources = array(jsonCopy(value('resources')), 'deployment resource-stage mappings').map(item => {
     const row = object(item, 'deployment resource stages');

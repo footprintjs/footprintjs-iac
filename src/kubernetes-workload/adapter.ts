@@ -5,6 +5,7 @@ import { kubernetesWorkloadReferences } from './compile.ts';
 import { KubernetesWorkloadAdapterError, KubernetesWorkloadPreflightError } from './errors.ts';
 import { mergeKubernetesReferences } from './references.ts';
 import type { GuardedKubernetesAdapterOptions, KubernetesExternalReference, KubernetesWorkloadPreflight } from './types.ts';
+import { createAdapterFlowChart } from '../adapter-flow/create-chart.ts';
 
 const resourceDigest = (resource: Resource) => fingerprint({ id: resource.id, provider: resource.provider, spec: resource.spec });
 
@@ -15,6 +16,8 @@ export class GuardedKubernetesAdapter implements ResourceAdapter {
   readonly name = 'kubernetes';
   readonly scope: string;
   readonly supportsSafeRetry: boolean;
+  readonly createApplyFlow?:ResourceAdapter['createApplyFlow'];
+  readonly createVerifyFlow?:ResourceAdapter['createVerifyFlow'];
   private readonly options: GuardedKubernetesAdapterOptions;
   private readonly stack: string;
   private readonly graphDigest: string;
@@ -38,6 +41,20 @@ export class GuardedKubernetesAdapter implements ResourceAdapter {
     this.references = mergeKubernetesReferences([...extracted, ...(options.references ?? [])], namespace);
     this.scope = options.guard.scope;
     this.supportsSafeRetry = options.delegate.supportsSafeRetry === true;
+    if(options.delegate.createApplyFlow)this.createApplyFlow=(resource,context,binding)=>{
+      const selected=this.admit(resource,context,'apply'),selectedContext={...context};
+      const child=options.delegate.createApplyFlow!(selected,selectedContext,binding);
+      return createAdapterFlowChart(binding,[
+        {id:'guard-target',name:'Verify pinned Kubernetes target and references',phase:'revalidate',run:async()=>{await this.preflight();}},
+        {id:'guard-owner',name:'Verify declared workload ownership',phase:'inspect',run:async()=>{const observed=await this.delegateObserve(selected,selectedContext);if(observed.exists&&observed.owned!==true)throw Error('workload-unowned');}},
+        {id:'guard-revalidate',name:'Revalidate pinned target before mutation',phase:'revalidate',run:async()=>{await this.preflight();}},
+      ],child);
+    };
+    if(options.delegate.createVerifyFlow)this.createVerifyFlow=(resource,context,binding)=>{
+      const selected=this.admit(resource,context,'waitReady'),selectedContext={...context};
+      return createAdapterFlowChart(binding,[{id:'guard-verify-target',name:'Verify pinned target and required references',phase:'revalidate',run:async()=>{await this.preflight();}}],
+        options.delegate.createVerifyFlow!(selected,selectedContext,binding));
+    };
   }
 
   /** Invoke in a recorded stage before change assessment; execution repeats it before provider calls. */

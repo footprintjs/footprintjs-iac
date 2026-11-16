@@ -136,6 +136,47 @@ with tempfile.TemporaryDirectory() as root:
   assert.deepEqual(value.temporaryFiles, []);
 });
 
+test('native Python phases perform one command boundary each and revalidate between marker writes and restart',()=>{
+  const value=python(applyFixture+String.raw`
+import contextlib
+commands=[];outputs=[]
+with tempfile.TemporaryDirectory() as root:
+ marker_path=lambda name:pathlib.Path(root).resolve()/(name+'.d')/MANAGED
+ def fake_run(args):
+  commands.append(args)
+  if args[:2]==['systemctl','restart']:
+   for name in units:facts[name]['appliedSpecDigest']='d'*64
+  return types.SimpleNamespace(returncode=0,stdout='')
+ run=fake_run
+ for phase in ['revalidate','configure','reload','start','observe']:
+  payload['operation']='flow-'+phase
+  if phase=='observe':payload['selectedUnit']='worker.service'
+  sys.stdin=io.StringIO(json.dumps(payload))
+  with contextlib.redirect_stdout(io.StringIO()) as output:main()
+  outputs.append(json.loads(output.getvalue()))
+ print(json.dumps({'commands':commands,'outputs':outputs}))
+`);
+  assert.deepEqual(value.commands,[['systemctl','daemon-reload'],['systemctl','restart','app.service','worker.service']]);
+  assert.equal((value.outputs as any[]).at(-1).unit.name,'worker.service');
+  const refused=python(applyFixture+String.raw`
+import contextlib
+commands=[]
+with tempfile.TemporaryDirectory() as root:
+ marker_path=lambda name:pathlib.Path(root).resolve()/(name+'.d')/MANAGED
+ payload['operation']='flow-configure';sys.stdin=io.StringIO(json.dumps(payload))
+ with contextlib.redirect_stdout(io.StringIO()):main()
+ facts['worker.service']['configurationDigest']='f'*64
+ run=lambda args:(commands.append(args) or types.SimpleNamespace(returncode=0,stdout=''))
+ payload['operation']='flow-start';sys.stdin=io.StringIO(json.dumps(payload))
+ try:
+  with contextlib.redirect_stdout(io.StringIO()):main()
+  admitted=True
+ except Exception:admitted=False
+ print(json.dumps({'admitted':admitted,'commands':commands}))
+`);
+  assert.deepEqual(refused,{admitted:false,commands:[]});
+});
+
 test('real Python inspection measures only the active process marker and never publishes environment values', () => {
   const value = python(String.raw`
 import tempfile,types

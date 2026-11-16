@@ -18,6 +18,10 @@ import { recordSystemdTarget } from './target-check.ts';
 import {captureSystemdSourceProvenance,systemdSourceProvenanceDigest} from './source-provenance.ts';
 import {createSystemdReconciler} from './reconcile.ts';
 import type { DeploymentStrategyAdapter, SystemdDeploymentOptions } from './types.ts';
+export { compileSystemdDeployment } from './compile.ts';
+export { defineSystemdTopology, type SystemdTopologyInput } from './topology.ts';
+export { createSystemdHost, type SystemdHostOptions, type SystemdHostUnitRegistration, type SystemdHostBoundaryObservation, type RegisteredSystemdHost } from './host.ts';
+export type * from './types.ts';
 
 /** Same engine/Master/check lifecycle as a guarded Kubernetes controller, over installed services. */
 export function createSystemdDeploymentAdapter(options:SystemdDeploymentOptions):DeploymentStrategyAdapter {
