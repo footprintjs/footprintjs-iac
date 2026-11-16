@@ -2,6 +2,7 @@
 
 ## 0.5.0-alpha.2
 
+- Add optional versioned onboarding with sealed configuration reviews, explicit activation, stable ownership, expiring CLI fences and retained native histories. Exact configuration no-ops preserve the active head and readiness; missing capture requires reconciliation.
 - Expose optional native recorder and chart-observer ports on the systemd deployment adapter, enabling honest live application-host views without another deployment engine.
 - Preserve existing sealed plans, target identity checks and replay semantics.
 

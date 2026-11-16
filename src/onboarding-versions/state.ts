@@ -1,0 +1,8 @@
+import type {OnboardingVersionAction,OnboardingVersionDescriptor,OnboardingVersionReview,OnboardingVersionOwner,OnboardingVersionBlocker} from './types.ts';
+export interface RegistryProof {runId:string;evidencePath:string;tracePath:string;digest:string}
+export interface VersionWorkflowObservation {versionId:string;status:string;busy:boolean;canDeploy:boolean;configurationDigest:string;recording?:{runId:string}}
+export interface RegistryObservation {workflows:VersionWorkflowObservation[];ownership:import('./types.ts').OnboardingOwnershipObservation;digest:string}
+export interface RegistryEntry {reconciles?:{operationId:string;digest:string}[];id:string;action:OnboardingVersionAction;fromVersionId:string;head:number;review:OnboardingVersionReview;reviewSeal?:string;observation?:RegistryObservation;proposal?:{head:number;versionId:string};outcome?:'reviewed'|'blocked'|'activated'|'reconciled-failed';proof?:RegistryProof}
+export interface RegistryState {version:1;kind:'onboarding-version-registry';id:string;bindingDigest:string;owner:OnboardingVersionOwner;head:number;activeVersionId:string;descriptors:OnboardingVersionDescriptor[];locations:Record<string,{sessionDirectory:string;workflowDirectory:string}>;history:{head:number;versionId:string;proof?:RegistryProof}[];entries:RegistryEntry[];currentReviewId?:string;incomplete?:boolean}
+export interface CapturedVersion {descriptor:OnboardingVersionDescriptor;sessionDirectory:string;workflowDirectory:string;workflow:import('../onboarding/workflow.ts').OnboardingWorkflow}
+export function versionBlocker(ownerId:string,kind:OnboardingVersionBlocker['kind'],status:OnboardingVersionBlocker['status'],runId?:string):OnboardingVersionBlocker{return{ownerId,kind,status,...runId?{runId}:{}};}

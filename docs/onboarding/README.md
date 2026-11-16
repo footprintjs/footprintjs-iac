@@ -6,6 +6,8 @@ This is a source navigation map. Actual execution, selected paths, outcomes and 
 
 Discover system → Configure connection → Verify connections → Review changes → Deploy and test. Human actions separate these stages. One native chart records each admitted action; this map does not claim they execute automatically or in parallel.
 
+Configuration versions use a separate native Bind → Inspect all original owners → Decide transition. Explicit activation changes desired configuration only; the existing resource planner/deployer remains authoritative. Exact no-ops do not advance the head.
+
 | Source | Ownership |
 | --- | --- |
 | [src/onboarding/binding.ts](../../src/onboarding/binding.ts) | Immutable binding provenance; never permission to switch state directories |
@@ -23,6 +25,19 @@ Discover system → Configure connection → Verify connections → Review chang
 | [src/onboarding/store.ts](../../src/onboarding/store.ts) | Private durable ledger and process lock |
 | [src/onboarding/types.ts](../../src/onboarding/types.ts) | Public stage catalog and adapter contracts |
 | [src/onboarding/workflow.ts](../../src/onboarding/workflow.ts) | Durable action admission, exact review ownership and orchestration |
+| [src/onboarding-versions/create-version-chart.ts](../../src/onboarding-versions/create-version-chart.ts) | The native Bind → Inspect → Decide configuration chart |
+| [src/onboarding-versions/data.ts](../../src/onboarding-versions/data.ts) | Pure strict history/configuration identity and action admission |
+| [src/onboarding-versions/diff.ts](../../src/onboarding-versions/diff.ts) | Declared desired configuration diff only |
+| [src/onboarding-versions/index.ts](../../src/onboarding-versions/index.ts) | Read this module for its owning behavior |
+| [src/onboarding-versions/node.ts](../../src/onboarding-versions/node.ts) | Read this module for its owning behavior |
+| [src/onboarding-versions/ownership.ts](../../src/onboarding-versions/ownership.ts) | Inspect every original onboarding/host/native owner under participating locks |
+| [src/onboarding-versions/recording.ts](../../src/onboarding-versions/recording.ts) | Read-only admitted configuration evidence and trace replay |
+| [src/onboarding-versions/registry.ts](../../src/onboarding-versions/registry.ts) | Stable owner registry, active-head facade, bounded lease and configuration CAS |
+| [src/onboarding-versions/scope.ts](../../src/onboarding-versions/scope.ts) | Read this module for its owning behavior |
+| [src/onboarding-versions/stages.ts](../../src/onboarding-versions/stages.ts) | Recorded owner observations, sealed review and guarded activation proposal |
+| [src/onboarding-versions/state.ts](../../src/onboarding-versions/state.ts) | Read this module for its owning behavior |
+| [src/onboarding-versions/store.ts](../../src/onboarding-versions/store.ts) | Atomic registry ledger and immutable owner anchor |
+| [src/onboarding-versions/types.ts](../../src/onboarding-versions/types.ts) | Version, stable-owner, guard and atomic envelope contracts |
 
 [Exact source hashes](blueprint.json). [Usage and change guidance](../agent-onboarding.md).
 

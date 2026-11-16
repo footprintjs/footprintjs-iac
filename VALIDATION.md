@@ -4,6 +4,22 @@ Current local library: **footprintjs-iac 0.5.0-alpha.2**, using pinned **FootPri
 
 These are recorded results from the development laptop, not a claim that a fresh clone has already run them. Generated `.artifacts/` evidence, kubeconfig, state and logs are private local outputs and are intentionally excluded from Git. Reproduce the checks directly on your laptop with the [sharing guide](docs/SHARING.md). Automatic GitHub CI triggers are disabled for now; the saved workflow is manual-only. The real Neo integration runs directly through the local IaC command and requires a separately authorized private Neo checkout and local Docker/kind.
 
+## Versioned onboarding — 2026-11-16
+
+The full library suite passes **711 tests, with one existing Linux/root-UID
+skip and zero failures** (712 total). Typecheck, build and the source-context
+freshness check pass. The 22 new registry regressions cover exact diffs, sealed
+activation, no-op head/readiness preservation, pending original owners even
+after native success, stale reviews, retired adapters, expired asynchronous
+leases, actual mutex contention, explicit legacy registration, missing owner
+files and capture-loss reconciliation without advancing the head.
+
+These are controlled library tests. Configuration activation records the
+registered ownership transition; resource planning, live target preflight and
+application qualification remain the existing deployment strategy's job.
+Participating controllers share registered locks. Uncooperative external tools
+are an explicit boundary. No CI or npm publication was used for this candidate.
+
 ## Systemd application-host progress — 2026-11-15
 
 Typecheck, **589 tests (0 failed, 0 skipped)** and build pass. The systemd

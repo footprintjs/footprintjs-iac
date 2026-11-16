@@ -1,6 +1,6 @@
 {
   "schema": "infrachart-onboarding-source-context/v1",
-  "scope": "Reusable onboarding module only; deployment engines, provider internals and consumer callbacks are separate scopes",
+  "scope": "Reusable onboarding and guarded configuration-version registry; resource engines, provider internals and consumer callbacks are separate scopes",
   "evidence": "Declared source inventory. Hashes detect freshness; they do not prove runtime execution or correctness.",
   "stages": [
     {
@@ -32,6 +32,15 @@
       "retain"
     ],
     "authority": "workflow.ts admits one manual action; deployment strategy owns plan/apply/reconcile"
+  },
+  "configurationRegistry": {
+    "source": "src/onboarding-versions/create-version-chart.ts",
+    "stages": [
+      "bind",
+      "inspect",
+      "decide"
+    ],
+    "authority": "Registry changes registered desired configuration only; existing native Master and strategy still plan/deploy resources"
   },
   "sources": [
     {
@@ -108,11 +117,77 @@
       "path": "src/onboarding/workflow.ts",
       "sha256": "4d1a836623b1f1ecc7040448038c23ddbfa751e13afb37de40065d2391895f9a",
       "role": "Durable action admission, exact review ownership and orchestration"
+    },
+    {
+      "path": "src/onboarding-versions/create-version-chart.ts",
+      "sha256": "22f5f1a984f8dcd6adb0ebeb975da1dc809283d84d0f1eda86483fd26d9ef8f0",
+      "role": "The native Bind → Inspect → Decide configuration chart"
+    },
+    {
+      "path": "src/onboarding-versions/data.ts",
+      "sha256": "287e566a488d73c151821af0771a5459fed0f28edd99d21e2a72bdee492903c6",
+      "role": "Pure strict history/configuration identity and action admission"
+    },
+    {
+      "path": "src/onboarding-versions/diff.ts",
+      "sha256": "f45327746ab76c22612244b8aae5e9931088d7e65ade2aceb48031adeba8f8cc",
+      "role": "Declared desired configuration diff only"
+    },
+    {
+      "path": "src/onboarding-versions/index.ts",
+      "sha256": "fa1bf5f2105801fd1c21a0f7e7afa50acc243a1b3011dbf3977599152d0a0117",
+      "role": "Read this module for its owning behavior"
+    },
+    {
+      "path": "src/onboarding-versions/node.ts",
+      "sha256": "9f679f84f1786cfc5e3ea1c4b5ff7a6bf1d5ad04349668b677616609a060fafa",
+      "role": "Read this module for its owning behavior"
+    },
+    {
+      "path": "src/onboarding-versions/ownership.ts",
+      "sha256": "339641bd314ecc51d6337a568e815b83a2357a7a72b40f5d587e8dfd1226e4be",
+      "role": "Inspect every original onboarding/host/native owner under participating locks"
+    },
+    {
+      "path": "src/onboarding-versions/recording.ts",
+      "sha256": "39f0e05ba0f8b4324f6cca7e82b13efb049be82b168c06deeb50baaa8bada403",
+      "role": "Read-only admitted configuration evidence and trace replay"
+    },
+    {
+      "path": "src/onboarding-versions/registry.ts",
+      "sha256": "4a4477372da53c966fcc3ea5516d6511eb4d92a56175872e6e4d59bee23a56f5",
+      "role": "Stable owner registry, active-head facade, bounded lease and configuration CAS"
+    },
+    {
+      "path": "src/onboarding-versions/scope.ts",
+      "sha256": "550596567bc6b8040cc989bd7d611cf785438740fa887371d9f46c160dd0c037",
+      "role": "Read this module for its owning behavior"
+    },
+    {
+      "path": "src/onboarding-versions/stages.ts",
+      "sha256": "625fddd37f819448b7f142827ca8713e366dbb6b6b90448c3243be1f30ebb0bf",
+      "role": "Recorded owner observations, sealed review and guarded activation proposal"
+    },
+    {
+      "path": "src/onboarding-versions/state.ts",
+      "sha256": "16c497813e7997fe683a83b5c943dbd4f6ff3d42524083c0d419bd8656ae12a3",
+      "role": "Read this module for its owning behavior"
+    },
+    {
+      "path": "src/onboarding-versions/store.ts",
+      "sha256": "7710fb8b6a6cbf779859e8a9015d79e5bdc141bf1ff53a07bfbcaf9269a7a266",
+      "role": "Atomic registry ledger and immutable owner anchor"
+    },
+    {
+      "path": "src/onboarding-versions/types.ts",
+      "sha256": "04b7841666fac2f2e86ec172c1f6211e84d8fe4a2ff3f361c91c76491b1179da",
+      "role": "Version, stable-owner, guard and atomic envelope contracts"
     }
   ],
   "opaqueBoundaries": [
     "registered discovery/configuration/verification callbacks",
     "registered deployment strategy and its native engine",
-    "provider transport and external application state"
+    "provider transport and external application state",
+    "registered ownership guard and actual participating host/native mutexes; uncooperative external actors are outside that lease"
   ]
 }

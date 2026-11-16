@@ -102,9 +102,10 @@ Presets, profile selection and adapter/check digests are immutable for a session
 `onboardingBindingDigest(preset)` from `footprintjs-iac/onboarding/node` exposes
 that captured configuration identity for provenance. It does not authorize a new
 state path, target adoption or migration. A changed preset refuses the existing
-session. Any later versioned-session registration must explicitly retain and
-check the original host, onboarding and native deployment outcomes before
-switching; do not derive an automatic replacement directory from the digest.
+session. Use the optional [version registry](../onboarding-versions/README.md) for an
+explicit recorded configuration review and guarded activation. It retains and
+checks every original onboarding, host and native owner before switching; do
+not derive replacement paths directly from the digest.
 Never delete or move a ledger to bypass an uncertain attempt. Sessions are
 bounded to 256 transitions and stop explicitly at that limit; history is not
 discarded.

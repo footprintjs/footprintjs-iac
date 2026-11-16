@@ -21,6 +21,13 @@ consumer. [Agent guidance](docs/agent-onboarding.md) and a
 each part and how to verify it. Onboarding is in this source candidate; the
 previous npm alpha does not contain these exports.
 
+For setup changes, the optional [version registry](src/onboarding-versions/README.md)
+records a configuration diff before explicit activation. Versions keep one
+physical owner and native deployment ledger. A new version starts pending;
+the existing planner then assesses and deploys only the affected resources.
+Pending owners block the switch, while an exact no-op preserves the current
+head and Ready run. Activation itself performs no resource deployment.
+
 The host-only [platform bootstrap API](docs/platform-bootstrap.md) separates server
 access/discovery, installation strategies and cluster lifecycle adapters. It
 records Create/Find → connection publication → Connect → Verify, including

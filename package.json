@@ -267,6 +267,14 @@
     "./onboarding/node": {
       "types": "./dist/src/onboarding/node.d.ts",
       "import": "./dist/src/onboarding/node.js"
+    },
+    "./onboarding/versions": {
+      "types": "./dist/src/onboarding-versions/index.d.ts",
+      "import": "./dist/src/onboarding-versions/index.js"
+    },
+    "./onboarding/versions/node": {
+      "types": "./dist/src/onboarding-versions/node.d.ts",
+      "import": "./dist/src/onboarding-versions/node.js"
     }
   },
   "files": [
