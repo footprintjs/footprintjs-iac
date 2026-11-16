@@ -259,6 +259,14 @@
     "./package-runtime/node": {
       "types": "./dist/src/package-runtime/node.d.ts",
       "import": "./dist/src/package-runtime/node.js"
+    },
+    "./onboarding": {
+      "types": "./dist/src/onboarding/index.d.ts",
+      "import": "./dist/src/onboarding/index.js"
+    },
+    "./onboarding/node": {
+      "types": "./dist/src/onboarding/node.d.ts",
+      "import": "./dist/src/onboarding/node.js"
     }
   },
   "files": [
@@ -276,7 +284,9 @@
     "dist/integration/identity"
   ],
   "scripts": {
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && node scripts/onboarding-blueprint.mjs --check",
+    "context:onboarding": "node scripts/onboarding-blueprint.mjs",
+    "context:onboarding:check": "node scripts/onboarding-blueprint.mjs --check",
     "test": "node --test test/*.test.ts",
     "build": "tsc",
     "demo": "node examples/local-demo.ts",

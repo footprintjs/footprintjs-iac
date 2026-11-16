@@ -1,0 +1,118 @@
+{
+  "schema": "infrachart-onboarding-source-context/v1",
+  "scope": "Reusable onboarding module only; deployment engines, provider internals and consumer callbacks are separate scopes",
+  "evidence": "Declared source inventory. Hashes detect freshness; they do not prove runtime execution or correctness.",
+  "stages": [
+    {
+      "id": "discover",
+      "label": "Discover system"
+    },
+    {
+      "id": "configure",
+      "label": "Configure connection"
+    },
+    {
+      "id": "verify",
+      "label": "Verify connections"
+    },
+    {
+      "id": "review",
+      "label": "Review changes"
+    },
+    {
+      "id": "deploy",
+      "label": "Deploy and test"
+    }
+  ],
+  "chart": {
+    "source": "src/onboarding/create-onboarding-chart.ts",
+    "perAction": [
+      "bind",
+      "selected-action",
+      "retain"
+    ],
+    "authority": "workflow.ts admits one manual action; deployment strategy owns plan/apply/reconcile"
+  },
+  "sources": [
+    {
+      "path": "src/onboarding/binding.ts",
+      "sha256": "cf089e5cb849cf84422e3566c11bab5d3a4929e1048e92544a820aa339509b9e",
+      "role": "Immutable binding provenance; never permission to switch state directories"
+    },
+    {
+      "path": "src/onboarding/checks.ts",
+      "sha256": "088eef4552ebe74cc43236503d76eae6f06bc78535e8e1c6a84d5131b82d5bff",
+      "role": "Compose registered check policies without dropping required outcomes"
+    },
+    {
+      "path": "src/onboarding/create-onboarding-chart.ts",
+      "sha256": "7030be50d56d9cc0ae6899414c38fb7cda493ec5e61309e839306b1db1df8fdf",
+      "role": "The native bind → selected action → retain chart construction"
+    },
+    {
+      "path": "src/onboarding/data.ts",
+      "sha256": "0c7f8ad571adb323b6bdd533c536a44b7e521689f288b82920416bf9255c3b4b",
+      "role": "Bounded public data admission and stage labels"
+    },
+    {
+      "path": "src/onboarding/index.ts",
+      "sha256": "35fc30ad5d58dd332537d769b56fe40e267a277dab44eab22039de52807e3bc4",
+      "role": "Provider-free public entrypoint"
+    },
+    {
+      "path": "src/onboarding/node.ts",
+      "sha256": "32bb4c66956303de338f78a8142710cac5fd74bbe652d2f1e71790d91479756e",
+      "role": "Node-only workflow entrypoint"
+    },
+    {
+      "path": "src/onboarding/permissions.ts",
+      "sha256": "3932dbe3bc298dbe5cd13d5492c269a6466e9d22798d92947de9a51990af9591",
+      "role": "Allowed next actions derived from admitted state"
+    },
+    {
+      "path": "src/onboarding/preset.ts",
+      "sha256": "4dcb8fc35832dd611dd9cf4c227ac4c6b3d040ef51616f45e9f5b9fe9296a361",
+      "role": "Provider-free immutable adapter registration"
+    },
+    {
+      "path": "src/onboarding/recording.ts",
+      "sha256": "fb36343d2938c43c3184ed3c9e2da60ef73cd870e41e738612fdb1891dc9d984",
+      "role": "Retained native recording admission and read-only replay"
+    },
+    {
+      "path": "src/onboarding/scope.ts",
+      "sha256": "02c0bda9104a65b4067fdd2986420f2d29b0eb264c736623870bcafb8ba9d18d",
+      "role": "Native tracked scope"
+    },
+    {
+      "path": "src/onboarding/stages.ts",
+      "sha256": "96fed85a93394f9c16e785fbe2fc735ba7e5310042049f3e607102696aa7c81b",
+      "role": "Measured stage behavior and delegation to the registered deployment strategy"
+    },
+    {
+      "path": "src/onboarding/state.ts",
+      "sha256": "b687274738bb31b387b0260d6d6c8d624f6976c85560b9a25cd33b51124897c0",
+      "role": "Private ledger and receipt contracts"
+    },
+    {
+      "path": "src/onboarding/store.ts",
+      "sha256": "67a3bcaf653358489f93f1fd20d50faf4ab72d321beb2e2c28d2465a80680fb3",
+      "role": "Private durable ledger and process lock"
+    },
+    {
+      "path": "src/onboarding/types.ts",
+      "sha256": "a2ef55d8a943ce414ee6867de6d383682ed5aa48f1297243262e6c929cd4e674",
+      "role": "Public stage catalog and adapter contracts"
+    },
+    {
+      "path": "src/onboarding/workflow.ts",
+      "sha256": "4d1a836623b1f1ecc7040448038c23ddbfa751e13afb37de40065d2391895f9a",
+      "role": "Durable action admission, exact review ownership and orchestration"
+    }
+  ],
+  "opaqueBoundaries": [
+    "registered discovery/configuration/verification callbacks",
+    "registered deployment strategy and its native engine",
+    "provider transport and external application state"
+  ]
+}

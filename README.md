@@ -12,6 +12,15 @@ Start with the [capability and wrapper guide](docs/CAPABILITIES.md). The [identi
 
 For another laptop, start with the [clone, setup and test guide](docs/SHARING.md). The [agent handoff](docs/NEO-AGENT-HANDOFF.md) is ready to forward with the repository link. The library repository is public; the separate Neo source repository requires GitHub read access.
 
+The [reusable onboarding preset](src/onboarding/README.md) composes Discover →
+Configure → Verify → Review → Deploy over a registered deployment strategy.
+CLI and Lens can share the same target, check policy and native controller
+ledger. Application-specific login, access and dependency adapters stay in the
+consumer. [Agent guidance](docs/agent-onboarding.md) and a
+[source-linked workflow map](docs/onboarding/README.md) explain where to change
+each part and how to verify it. Onboarding is in this source candidate; the
+previous npm alpha does not contain these exports.
+
 The host-only [platform bootstrap API](docs/platform-bootstrap.md) separates server
 access/discovery, installation strategies and cluster lifecycle adapters. It
 records Create/Find → connection publication → Connect → Verify, including
@@ -25,11 +34,15 @@ application containers into the registered cluster.
 Requires Node.js 24 or newer. Pin the preview version
 when adopting it in an application:
 
-```sh
-npm install --save-exact footprintjs-iac@0.5.0-alpha.2
-```
+The `0.5.0-alpha.2` source candidate has not been published to npm. Build and
+pack this checkout (`npm ci`, `npm run check`, `npm test`, `npm run build`,
+`npm pack`), then install the resulting archive in the consuming project.
+Neo and Lens pin a reviewed archive with its hash, so another laptop needs no
+developer-local source paths. Use their lockfiles with `npm ci`.
 
-The `alpha` distribution tag tracks the current preview (`npm install footprintjs-iac@alpha`).
+The `alpha` distribution tag installs the previously published preview
+(`npm install footprintjs-iac@alpha`); it does not imply this checkout's new
+APIs are available in the registry.
 Use public package exports such as `footprintjs-iac`,
 `footprintjs-iac/deployment-strategy` and `footprintjs-iac/master/workflow`.
 Importing the library performs no deployment. Providers, private connection profiles,
