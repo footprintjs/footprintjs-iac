@@ -1,11 +1,14 @@
 import type { FlowChart } from 'footprintjs';
 import { array, jsonCopy, keys, object, text } from '../graph/data.ts';
 import type { Action } from '../types.ts';
+import { readScheduleReasons, type ScheduleReasons } from './schedule-reasons.ts';
+export type { ScheduleReasons } from './schedule-reasons.ts';
 
 /** Explicit bindings emitted by the one native apply-chart construction root. */
 export interface DeploymentResourceStages {
   readonly resourceId: string; readonly action: Action; readonly batchIndex: number;
   readonly executeStageId: string; readonly skipStageId: string; readonly gateStageId: string; readonly joinStageId?: string;
+  readonly schedule?: ScheduleReasons;
 }
 export type NativeDeploymentStructure = FlowChart<void, unknown>['buildTimeStructure'];
 export interface DeploymentChart {
@@ -62,7 +65,7 @@ export function readDeploymentChart(input: unknown): DeploymentChart {
   const ids = new Set<string>();
   const resources = array(jsonCopy(value('resources')), 'deployment resource-stage mappings').map(item => {
     const row = object(item, 'deployment resource stages');
-    keys(row, ['resourceId', 'action', 'batchIndex', 'executeStageId', 'skipStageId', 'gateStageId', 'joinStageId'], 'deployment resource stages');
+    keys(row, ['resourceId', 'action', 'batchIndex', 'executeStageId', 'skipStageId', 'gateStageId', 'joinStageId', 'schedule'], 'deployment resource stages');
     const resourceId = nonempty(row.resourceId, 'resource ID');
     if (ids.has(resourceId)) throw Error('Duplicate deployment resource-stage mapping'); ids.add(resourceId);
     if (!actions.has(row.action as Action) || !Number.isSafeInteger(row.batchIndex) || (row.batchIndex as number) < 0) throw Error('Invalid deployment resource operation');
@@ -73,7 +76,8 @@ export function readDeploymentChart(input: unknown): DeploymentChart {
     };
     return Object.freeze({ resourceId, action: row.action as Action, batchIndex: row.batchIndex as number,
       executeStageId: stageId('executeStageId'), skipStageId: stageId('skipStageId'), gateStageId: stageId('gateStageId'),
-      ...(row.joinStageId !== undefined && { joinStageId: stageId('joinStageId') }) });
+      ...(row.joinStageId !== undefined && { joinStageId: stageId('joinStageId') }),
+      ...(row.schedule !== undefined && { schedule: readScheduleReasons(row.schedule, row.batchIndex as number) }) });
   });
   return Object.freeze({ version: 1, runId, stack, ...(graphDigest === undefined ? {} : { graphDigest }),
     structure, resources: Object.freeze(resources) });

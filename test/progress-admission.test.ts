@@ -17,13 +17,14 @@ async function fixture(t:test.TestContext,native=true,fail=false,slowParallel=fa
  const stored=new Map<string,string>(),recorder=createDeploymentRecorder(),calls={apply:0,observe:0};
  let markAStarted!:()=>void,markBFinished!:()=>void;const aStarted=new Promise<void>(resolve=>{markAStarted=resolve;}),bFinished=new Promise<void>(resolve=>{markBFinished=resolve;});
  if(slowParallel)recorder.subscribe(event=>{if(event.resourceId==='a'&&event.status==='deploying')markAStarted();if(event.resourceId==='b'&&event.status==='ready')markBFinished();});
- const adapter:ResourceAdapter={name:'registered',supportsSafeRetry:false,async observe(resource){calls.observe++;return{exists:stored.has(resource.id),owned:true,...(stored.has(resource.id)?{fingerprint:stored.get(resource.id),ready:true}:{})};},async apply(resource){calls.apply++;if(slowParallel&&resource.id==='a')await bFinished;if(slowParallel&&resource.id==='b')await aStarted;if(fail)throw Error('private provider failure');stored.set(resource.id,fingerprint(resource.spec));},async remove(){},async waitReady(){}};
+ const adapter:ResourceAdapter={name:'registered',supportsSafeRetry:false,async observe(resource){calls.observe++;return{exists:stored.has(resource.id),owned:true,...(stored.has(resource.id)?{fingerprint:stored.get(resource.id),ready:true}:{})};},async apply(resource){calls.apply++;if(slowParallel&&resource.id==='a')await bFinished;if(slowParallel&&resource.id==='b')await aStarted;if(fail)throw Error('private provider failure');stored.set(resource.id,fingerprint(resource.spec));},async remove(resource){stored.delete(resource.id);},async waitReady(){}};
  if(native)adapter.createApplyFlow=(resource,context,binding)=>createAdapterFlowChart(binding,[{id:'provider-change',name:'Run provider change',phase:'apply',async run(){await adapter.apply(resource,context);}}]);
  const graph=compileGraph({name:'progress-proof',boundaries:[],memberships:[],relations:[],resources:[{id:'a',provider:adapter.name,spec:{release:'one'}},{id:'b',provider:adapter.name,spec:{release:'one'}},{id:'c',provider:adapter.name,spec:{release:'one'},dependsOn:['a','b']}]});
- const result=await new InfraEngine({adapters:[adapter],store:new FileStateStore(join(directory,'state')),recorders:[recorder],chartObservers:[recorder],maxConcurrency:2,traceDirectory:join(directory,'trace')}).apply(graph);
+ const engine=new InfraEngine({adapters:[adapter],store:new FileStateStore(join(directory,'state')),recorders:[recorder],chartObservers:[recorder],maxConcurrency:2,traceDirectory:join(directory,'trace')});
+ const result=await engine.apply(graph);
  const evidence=JSON.parse(await readFile(result.evidencePath,'utf8'));
  const input:DeploymentProgressAdmissionInput={evidence,graph,plan:result.plan,runId:result.runId,ok:result.ok,chart:recorder.getSnapshot().chart!,recorder:recorder.getSnapshot()};
- return{directory,input,calls,result};
+ return{directory,input,calls,result,engine,recorder};
 }
 test('complete native child progress reopens with exact mounted start/result stages and no provider work',async t=>{
  const f=await fixture(t),before={...f.calls},view=await admitDeploymentProgress(f.input);
@@ -77,4 +78,22 @@ test('legacy commit fallback still rejects a changed execute mapping even when i
 
 test('every saved native chart mapping remains bound to its immutable capture, including unused gate metadata',async t=>{
  const f=await fixture(t);for(const field of ['gateStageId','skipStageId','joinStageId']as const){const chart=structuredClone(f.input.chart!);Object.assign(chart.resources[0]!,{[field]:'load-desired'});await assert.rejects(()=>admitDeploymentProgress({...f.input,chart,recorder:undefined}),/native-progress|deployment/);}
+});
+
+test('admission reopens a recorded prune without adding deleted resources back to the desired graph',async t=>{
+ const {engine,recorder,calls,input:created}=await fixture(t);
+ const graph=compileGraph({name:created.graph.name,boundaries:[],memberships:[],relations:[],resources:[]});
+ recorder.clear?.();
+ const result=await engine.apply(graph,{prune:true});
+ const evidence=JSON.parse(await readFile(result.evidencePath,'utf8'));
+ const input:DeploymentProgressAdmissionInput={evidence,graph,plan:result.plan,runId:result.runId,ok:result.ok,recorder:recorder.getSnapshot()};
+ assert(result.ok);
+ const before={...calls};
+ const view=await admitDeploymentProgress(input);
+ assert.deepEqual(view.resources.map(row=>row.id).sort(),['a','b','c']);
+ assert(view.resources.every(row=>row.action==='delete'&&row.status==='deleted'));
+ assert.equal(view.events.filter(row=>row.action==='delete'&&row.status==='deploying').length,3);
+ assert.deepEqual(calls,before);
+ await assert.rejects(()=>admitDeploymentProgress({...input,plan:{...input.plan,operations:input.plan.operations.slice(1)}}),/native-progress/);
+ await assert.rejects(()=>admitDeploymentProgress({...input,evidence:{...evidence,deploymentChart:undefined}}),/native-progress/);
 });

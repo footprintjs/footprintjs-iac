@@ -1,3 +1,4 @@
+import { communicationFields, type CommunicationDetails } from '../graph/communication.ts';
 import type { JsonObject, Resource } from '../types.ts';
 import { canonical } from '../util.ts';
 import { readBoundary } from './boundaries.ts';
@@ -48,10 +49,10 @@ export class InfraBuilder {
     }
     return this;
   }
-  connect(from: ResourceRef, to: ResourceRef, kind: RelationKind, label?: string): this {
+  connect(from: ResourceRef, to: ResourceRef, kind: RelationKind, label?: string, details?: CommunicationDetails): this {
     const relation: Relation = {
       from: this.reference(from), to: this.reference(to), kind,
-      ...(label === undefined ? {} : { label }),
+      ...(label === undefined ? {} : { label }), ...communicationFields(kind, details),
     };
     if (this.relations.some(row => relationKey(row) === relationKey(relation))) throw new Error('Duplicate relation');
     this.relations.push(relation);

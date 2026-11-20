@@ -1,10 +1,12 @@
+import { canonical } from '../util.ts';
 import { compileGraph } from '../graph/compile.ts';
 import type { Boundary, Membership, Relation } from '../graph/types.ts';
 import type { Capability, SystemDesign } from '../system/types.ts';
-import type { BindingDecision, CapabilityMapping } from './types.ts';
+import type { BindingDecision, CapabilityMapping, LoweredPropertyOrigin } from './types.ts';
 import type { ExpandedCapability } from './lowering.ts';
 
-export function compositionGroup(capability: Capability, mapping: CapabilityMapping, decision: BindingDecision, designDigest: string): Boundary {
+export function compositionGroup(capability: Capability, mapping: CapabilityMapping, decision: BindingDecision,
+  designDigest: string, propertyOrigins: LoweredPropertyOrigin[]): Boundary {
   return {
     id: mapping.groupId, kind: 'group', label: capability.path,
     attributes: {
@@ -15,6 +17,11 @@ export function compositionGroup(capability: Capability, mapping: CapabilityMapp
       support: mapping.mode === 'simulation' ? 'simulated declarations; no live guarantee' : 'adapter implementation claims; not observed verification',
       declaredProperties: capability.properties, defaults: capability.defaults,
       ruleId: decision.ruleId,
+      ...(propertyOrigins.length > 0 && {
+        propertyOrigins: propertyOrigins.map(origin => ({ ...origin })),
+        propertyReasons: Object.fromEntries(decision.requirements.filter(row => propertyOrigins.some(origin => origin.property === row.property))
+          .map(row => [row.property, row.reason])),
+      }),
     },
   };
 }
@@ -28,7 +35,8 @@ export function expandGraph(design: SystemDesign, expanded: ExpandedCapability[]
   for (const capability of design.capabilities) {
     const entry = byCapability.get(capability.id)!;
     if (boundaries.some(boundary => boundary.id === entry.mapping.groupId)) throw new Error('Composition group collides with a declared boundary');
-    boundaries.push(compositionGroup(capability, entry.mapping, decisions.find(decision => decision.capabilityId === capability.id)!, design.digest));
+    boundaries.push(compositionGroup(capability, entry.mapping, decisions.find(decision => decision.capabilityId === capability.id)!,
+      design.digest, entry.propertyOrigins));
     for (const id of entry.mapping.resourceIds) memberships.push({ resourceId: id, boundaryId: entry.mapping.groupId });
   }
   for (const membership of design.memberships) {
@@ -42,11 +50,12 @@ export function expandGraph(design: SystemDesign, expanded: ExpandedCapability[]
     // Ordering enters setup; architecture names logical terminals, not observed packet flow.
     const destinations = edge.kind === 'dependsOn' ? target.entryPoints : target.exitPoints;
     for (const from of source.exitPoints) for (const to of destinations) {
-      const relation: Relation = { from, to, kind: edge.kind === 'dependsOn' ? 'order' : 'communicatesWith', ...(edge.label === undefined ? {} : { label: edge.label }) };
+      const relation: Relation = { from, to, kind: edge.kind === 'dependsOn' ? 'order' : 'communicatesWith', ...(edge.details && { details: edge.details }), ...(edge.label === undefined ? {} : { label: edge.label }) };
       const key = JSON.stringify([from, to, relation.kind]);
       const previous = dedupe.get(key);
       if (previous && previous.label !== relation.label) throw new Error('Conflicting expanded relation labels');
-      dedupe.set(key, relation);
+      if (previous?.details && relation.details && canonical(previous.details) !== canonical(relation.details)) throw Error('Conflicting expanded connection details');
+      dedupe.set(key, { ...previous, ...relation });
     }
   }
   return compileGraph({

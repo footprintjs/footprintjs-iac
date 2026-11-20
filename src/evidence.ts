@@ -5,6 +5,7 @@ import type { RuntimeSnapshot } from 'footprintjs';
 import type { DeploymentChart } from './progress/chart.ts';
 import { formatSlice, stateAt, type ControlDependency } from 'foottrace';
 import { inspectRecordedDependencies } from './diagnostics/recorded-slice.ts';
+import { recordedSchedule } from './diagnostics/recorded-schedule.ts';
 export {verifyEvidenceTrace,type EvidenceTraceInput} from './evidence-trace.ts';
 
 export interface RunEvidence {
@@ -42,5 +43,6 @@ export function replay(evidence: RunEvidence, commit?: number) {
 
 export function backwalk(evidence: RunEvidence, key = 'failure') {
   const { slice } = inspectRecordedDependencies(evidence, key);
-  return { slice, text: formatSlice(slice) };
+  const text = formatSlice(slice), schedule = recordedSchedule(evidence, key);
+  return schedule ? { slice, schedule, text: `${text}\n\nRecorded schedule for ${schedule.resourceId}\n${schedule.reasons.join('\n')}` } : { slice, text };
 }

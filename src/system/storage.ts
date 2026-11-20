@@ -1,4 +1,5 @@
 import { CapabilityBuilder } from './leaf.ts';
+import { issueHandle, type StoreHandle } from './handles.ts';
 import { DeclarationScope, invokeScope } from './scope.ts';
 import { choice, durationFields, replicationValue, retentionValue } from './property-values.ts';
 import type { Capability, DataModel, Durability, Expiration, Replication, Retention, Sharing } from './types.ts';
@@ -25,10 +26,23 @@ export class StoreBuilder extends CapabilityBuilder {
 export class StorageScope extends DeclarationScope {
   private readonly capabilities: Capability[] = [];
   private readonly group: string;
-  constructor(group: string) { super(); this.group = group; }
+  private readonly handles: Set<object>;
+  constructor(group: string, handles = new Set<object>()) { super(); this.group = group; this.handles = handles; }
   addStore(id: string, callback: (store: StoreBuilder) => StoreBuilder | void): this { return this.add(id, callback, 'generic'); }
   addSessionStore(id: string, callback: (store: StoreBuilder) => StoreBuilder | void): this { return this.add(id, callback, 'session'); }
   addDataStore(id: string, callback: (store: StoreBuilder) => StoreBuilder | void): this { return this.add(id, callback, 'data'); }
+  store(id: string, callback: (store: StoreBuilder) => StoreBuilder | void): StoreHandle {
+    this.addStore(id, callback);
+    return issueHandle(this.handles, 'store', `${this.group}.${id}`);
+  }
+  sessionStore(id: string, callback: (store: StoreBuilder) => StoreBuilder | void = () => {}): StoreHandle {
+    this.addSessionStore(id, callback);
+    return issueHandle(this.handles, 'store', `${this.group}.${id}`);
+  }
+  dataStore(id: string, callback: (store: StoreBuilder) => StoreBuilder | void): StoreHandle {
+    this.addDataStore(id, callback);
+    return issueHandle(this.handles, 'store', `${this.group}.${id}`);
+  }
   private add(id: string, callback: (store: StoreBuilder) => StoreBuilder | void, recipe: 'generic' | 'session' | 'data'): this {
     this.assertOpen();
     const store = new StoreBuilder(this.group, id, recipe);

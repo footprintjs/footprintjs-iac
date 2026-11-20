@@ -1,6 +1,6 @@
 import type { Json, JsonObject, Resource } from '../types.ts';
 import type { InfraGraph, Relation } from '../graph/types.ts';
-import type { Capability, Principal } from '../system/types.ts';
+import type { Capability, Principal, StorageAccess, StoreReference } from '../system/types.ts';
 
 export interface BindingTarget { id: string; properties?: JsonObject }
 export interface BindingRule {
@@ -29,6 +29,8 @@ export interface SupportContext {
   readonly target: BindingTarget;
   artifact(reference: unknown): JsonObject;
   principal(reference: unknown): Principal;
+  /** Declared access only. Adapters must still install backend permissions. */
+  storeUses?(store: StoreReference): ReadonlyArray<{ workloadId: string; kind: Capability['kind']; access: StorageAccess }>;
 }
 export interface LoweringContext extends SupportContext {
   /** Every returned resource must use an ID allocated here, binding identity to this target. */
@@ -38,7 +40,10 @@ export interface LoweringContext extends SupportContext {
 export interface LoweredCapability {
   resources: Resource[];
   internalRelations?: Relation[];
+  /** Map an intent property to the exact output fields it produced. Paths are JSON pointers under resource.spec. */
+  propertyOrigins?: LoweredPropertyOrigin[];
 }
+export interface LoweredPropertyOrigin { property: string; resourceId: string; path: string }
 /** Trusted synchronous compiler extension. No SDK, I/O, observation or mutation belongs here. */
 export interface CapabilityAdapter {
   id: string;

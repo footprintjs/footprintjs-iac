@@ -51,12 +51,14 @@ function validateState(value: unknown, stack: string): asserts value is StackSta
   for (const [key, managed] of Object.entries(value.resources)) {
     if (!object(managed) || typeof managed.fingerprint !== 'string' ||
         (managed.physicalId !== undefined && typeof managed.physicalId !== 'string') ||
+        (managed.attributes !== undefined && !object(managed.attributes)) ||
         !object(managed.resource)) {
       throw new Error(`Invalid managed resource ${JSON.stringify(key)}`);
     }
     if (managed.pending !== undefined && (!object(managed.pending) ||
         typeof managed.pending.operationId !== 'string' || managed.pending.operationId.length === 0 ||
         !['create', 'update'].includes(managed.pending.action as string) ||
+        (managed.pending.resolvedSpec !== undefined && !object(managed.pending.resolvedSpec)) ||
         typeof managed.pending.desiredFingerprint !== 'string' || managed.pending.desiredFingerprint.length === 0)) {
       throw new Error(`Invalid pending operation for resource ${JSON.stringify(key)}`);
     }

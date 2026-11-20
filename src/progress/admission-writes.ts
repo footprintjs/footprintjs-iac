@@ -11,7 +11,8 @@ export interface NativeProgressWrite { commit: CommitBundle; count: number; term
 export function nativeProgressWrites(input: DeploymentProgressAdmissionInput, chart: DeploymentChart | undefined, runtimeRunId: string) {
   const file = readRecordFile(input.evidence.tracePath!), record = readStoredRecord(file.entries);
   require(!file.unreadable.length && !record.unread.length && [...record.logs.values()].every(log => log.complete && !log.gaps.length));
-  const ids = new Set(input.graph.resources.map(resource => resource.id)), mappings = new Map(chart?.resources.map(row => [row.resourceId, row]));
+  const actions = new Map(input.plan.operations.map(operation => [operation.resource.id, operation.action]));
+  const ids = new Set(actions.keys()), mappings = new Map(chart?.resources.map(row => [row.resourceId, row]));
   const root = record.root(runtimeRunId); require(root);
   const writes = new Map<string, NativeProgressWrite>(), events: AdmittedDeploymentEvent[] = [];
   let fileOrder = 0;
@@ -26,7 +27,7 @@ export function nativeProgressWrites(input: DeploymentProgressAdmissionInput, ch
       const path = `progress:${id}`, traces = commit.trace.filter(row => row.path === path && row.verb === 'set');
       if (!traces.length) continue;
       const value = commit.overwrite[path];
-      require(progressPayload(value, input.runId, ids) && value.resourceId === id && !!commit.runtimeStageId);
+      require(progressPayload(value, input.runId, ids) && value.resourceId === id && value.action === actions.get(id) && !!commit.runtimeStageId);
       const mapping = mappings.get(id), native = address.drillPath.length > 0;
       if (!native && mapping && commit.stageId === mapping.executeStageId
         && record.log({ logRunId: runtimeRunId, drillPath: [commit.runtimeStageId!] })) {

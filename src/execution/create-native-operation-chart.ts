@@ -10,7 +10,7 @@ import { createAdapterFlowChart } from '../adapter-flow/create-chart.ts';
 export function createNativeOperationChart(operation:PlannedOperation,options:OperationExecutionOptions,results:Record<string,unknown>) {
   const session=new NativeOperation(operation,options),binding={deploymentRunId:options.runId,adapterId:session.adapter.name,resourceId:operation.resource.id,operationId:operation.operationId};
   const effect=session.adapter.createApplyFlow?.(operation.resource,session.context,binding)
-    ??createAdapterFlowChart(binding,[{id:'opaque-provider-apply',name:'Run registered apply callback (opaque)',phase:'apply',run:()=>session.adapter.apply(operation.resource,session.context)}]);
+    ??createAdapterFlowChart(binding,[{id:'opaque-provider-apply',name:'Run registered apply callback (opaque)',phase:'apply',run:()=>session.apply()}]);
   const verification=session.adapter.createVerifyFlow?.(operation.resource,session.context,binding);
   let chart=flowChart<void,ExecutionScope>('Begin resource operation',async scope=>{
     await session.begin(scope);recordProgress(scope,options.runId,operation,'deploying');

@@ -4,6 +4,9 @@ export { SimulatorAdapter, type SimulatorFaults } from './providers/simulator.ts
 export { KubernetesAdapter, type KubernetesOptions } from './providers/kubernetes.ts';
 export { ReconcileStrategy } from './strategies.ts';
 export { buildPlan, orderResources } from './planner.ts';
+export { canonical, fingerprint, project } from './util.ts';
+export { ProviderChangeError } from './resource-change.ts';
+export { resourceAttribute } from './resource-attributes.ts';
 export { replay, backwalk, loadEvidence, verifyEvidenceTrace, type RunEvidence,type EvidenceTraceInput } from './evidence.ts';
 export type * from './types.ts';
 

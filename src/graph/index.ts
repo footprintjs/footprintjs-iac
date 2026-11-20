@@ -7,3 +7,4 @@ export { resource } from './resources.ts';
 export { parallelGroup, serialGroup } from './segments.ts';
 export { compileGraph } from './compile.ts';
 export { assertExecutableGraph, isGraphEnvelope, readInfraGraph, toStack, validateInfraGraph } from './validation.ts';
+export type { CommunicationDetails } from '../graph/communication.ts';

@@ -12,7 +12,7 @@ export function admitProgressRecorder(input: DeploymentProgressAdmissionInput, c
     && Array.isArray(data.events) && data.events.length > 0 && data.events.length <= 50_000 && data.sequence === data.events.length
     && data.resources && !Array.isArray(data.resources) && chart && canonical(readDeploymentChart(data.chart)) === canonical(chart)
     && canonical(chart.structure) === canonical(input.evidence.structure));
-  const ids = new Set(input.graph.resources.map(resource => resource.id)), mappings = new Map(chart.resources.map(row => [row.resourceId, row]));
+  const ids = new Set(input.plan.operations.map(operation => operation.resource.id)), mappings = new Map(chart.resources.map(row => [row.resourceId, row]));
   require(Object.keys(data.resources).length === ids.size && Object.keys(data.resources).every(id => ids.has(id)));
   const events: AdmittedDeploymentEvent[] = [], latest = new Map<string, AdmittedDeploymentEvent>(), observed = new Map<string, { count: number; terminal: ProgressPayload }>();
   let loading = true, lastCompletedWriteOrder = -1;

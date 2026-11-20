@@ -1,3 +1,4 @@
+import { communicationFields } from '../graph/communication.ts';
 import type { Json } from '../types.ts';
 import { canonical } from '../util.ts';
 import { array, identifier, jsonCopy, keys, object, text } from './data.ts';
@@ -39,17 +40,17 @@ export function graphBody(input: unknown): GraphBody {
   unique(memberships.map(canonical), 'boundary membership');
   const relations = array(row.relations, 'graph relations').map(value => {
     const relation = object(value, 'relation');
-    keys(relation, ['from', 'to', 'kind', 'label'], 'relation');
+    keys(relation, ['from', 'to', 'kind', 'label', 'details'], 'relation');
     if (!relationKinds.includes(relation.kind as RelationKind)) throw new Error('Invalid relation kind');
     const result: Relation = {
       from: identifier(relation.from, 'relation source'),
       to: identifier(relation.to, 'relation target'),
       kind: relation.kind as RelationKind,
-      ...(relation.label === undefined ? {} : { label: text(relation.label, 'relation label') }),
+      ...communicationFields(relation.kind, relation.details), ...(relation.label === undefined ? {} : { label: text(relation.label, 'relation label') }),
     };
     if (!resourceIds.has(result.from) || !resourceIds.has(result.to)) throw new Error(`Unknown relation endpoint: ${result.from} -> ${result.to}`);
     return result;
-  }).sort((a, b) => lexical(canonical(a), canonical(b)));
+  }).sort(({ details: _a, ...a }, { details: _b, ...b }) => lexical(canonical(a), canonical(b)));
   unique(relations.map(relationKey), 'relation');
   for (const resource of resources) {
     const expected = [...new Set(relations.filter(relation => isDeploymentRelation(relation) && relation.to === resource.id).map(relation => relation.from))].sort(lexical);

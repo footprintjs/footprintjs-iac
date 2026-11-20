@@ -5,6 +5,7 @@ import { canMigrateKubernetesBootstrap } from './kubernetes-bootstrap.ts';
 import { createKubernetesApplyChart } from './create-kubernetes-apply-chart.ts';
 import type { AdapterFlowContext } from '../adapter-flow/types.ts';
 import { createAdapterFlowChart } from '../adapter-flow/create-chart.ts';
+import { assessKubernetesChange } from './kubernetes-change.ts';
 
 export interface CommandResult { stdout: string; stderr?: string }
 export interface CommandOptions { input?: string; timeoutMs: number }
@@ -80,6 +81,7 @@ interface PreparedApply { target:Target; live:JsonObject|undefined; desired:Json
  */
 export class KubernetesAdapter implements ResourceAdapter {
   readonly name = 'kubernetes';
+  readonly assessChange = assessKubernetesChange;
   readonly supportsSafeRetry = true;
   readonly scope: string;
   private readonly options: Readonly<KubernetesOptions>;

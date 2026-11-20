@@ -1,3 +1,4 @@
+import { communicationFields } from '../graph/communication.ts';
 import { freeze, identifier, jsonCopy } from '../graph/data.ts';
 import type { SystemTopologyDefinition, SystemTopologyInput, SystemTopologyObservations, TopologyBindings, TopologyEvidenceReference } from './types.ts';
 export const canonicalTopology = (value: unknown): string => value === null || typeof value !== 'object' ? JSON.stringify(value) : Array.isArray(value) ? `[${value.map(canonicalTopology).join(',')}]` : `{${Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonicalTopology((value as Record<string, unknown>)[key])).join(',')}}`;
@@ -105,13 +106,14 @@ export function readSystemTopologyInput(input: unknown): SystemTopologyInput {
         bindings(n.bindings);
     }
     for (const raw of list(value.connections, 256)) {
-        const e = object(raw, ['id', 'from', 'to', 'kind', 'label', 'checkIds']);
+        const e = object(raw, ['id', 'from', 'to', 'kind', 'label', 'details', 'checkIds']);
         const eid = id(e.id);
         if (edgeIds.has(eid))
             throw Error('Duplicate topology connection');
         edgeIds.add(eid);
         if (!nodeIds.has(id(e.from)) || !nodeIds.has(id(e.to)) || e.from === e.to || !['communicatesWith', 'dependsOn'].includes(String(e.kind)))
             throw Error('Invalid topology connection');
+        communicationFields(e.kind, e.details);
         if (e.label !== undefined)
             text(e.label);
         if (e.checkIds !== undefined)

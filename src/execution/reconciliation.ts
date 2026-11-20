@@ -10,6 +10,7 @@ import type { ApplyResult } from '../engine.ts';
 import type { ResourceAdapter, Stack, StateStore } from '../types.ts';
 import { createReconciliationChart } from './create-reconciliation-chart.ts';
 import { runApplyChart } from './run-apply-chart.ts';
+import { providerContext } from './provider-state.ts';
 
 export interface EngineReconciliationResult {
   originalRunId:string; status:'failed'|'unknown'; runId:string; evidencePath:string; tracePath:string; digest:string;
@@ -47,12 +48,17 @@ export async function reconcileEngine(input:{stack:Stack;original:ApplyResult;st
     if(Object.values(state.resources).some(managed=>managed.pending&&!operations.some(operation=>operation.operationId===managed.pending!.operationId)))throw Error('another-pending-operation-remains-unknown');
     for(const operation of operations){
       const pending=state.resources[operation.resource.id]!.pending!,adapter=input.adapters.get(operation.resource.provider);
-      if(pending.desiredFingerprint!==operation.desiredFingerprint||!adapter?.inspectOutcome||!adapter.scope
+      const inputResolution=operation.inputResolution;
+      const spec=pending.resolvedSpec, expected=spec?fingerprint(spec):operation.desiredFingerprint;
+      if(!!spec!==!!inputResolution||(spec&&inputResolution&&'spec' in inputResolution&&canonical(spec)!==canonical(inputResolution.spec))
+        ||pending.desiredFingerprint!==expected||!adapter?.inspectOutcome||!adapter.scope
         ||state.providerScopes?.[adapter.name]!==adapter.scope)throw Error('pending-operation-inspector-not-registered');
     }
+    const pendingBefore=new Map(operations.map(operation=>[operation.resource.id,canonical(state.resources[operation.resource.id]!.pending)]));
     const runId=randomUUID(),chart=createReconciliationChart(original.runId,operations,async operation=>{
       const adapter=input.adapters.get(operation.resource.provider)!;
-      return structuredClone(await adapter.inspectOutcome!(structuredClone(operation.resource),{stack:stack.name,operationId:operation.operationId}));
+      const spec=state.resources[operation.resource.id]!.pending!.resolvedSpec??operation.resource.spec;
+      return structuredClone(await adapter.inspectOutcome!(structuredClone({...operation.resource,spec}),providerContext(state,operation.resource.id,operation.operationId)));
     });
     if(!input.traceDirectory)throw Error('native-reconciliation-trace-directory-required');
     const recorded=await runApplyChart(chart,runId,input.traceDirectory);
@@ -65,7 +71,7 @@ export async function reconcileEngine(input:{stack:Stack;original:ApplyResult;st
     if(status==='failed'){
       for(const operation of operations){
         const managed=state.resources[operation.resource.id]!;
-        if(canonical(managed.pending)!==canonical({operationId:operation.operationId,action:managed.pending!.action,desiredFingerprint:operation.desiredFingerprint}))throw Error('pending-operation-changed-during-reconciliation');
+        if(canonical(managed.pending)!==pendingBefore.get(operation.resource.id))throw Error('pending-operation-changed-during-reconciliation');
         await input.store.append({event:'observed',runId,stack:stack.name,operationId:operation.operationId,resourceId:operation.resource.id,action:operation.action,at:new Date().toISOString(),detail:`Known failed outcome recorded: ${evidencePath}`});
         delete managed.pending; // The resource/fingerprint remain unchanged; this does not promote it.
       }

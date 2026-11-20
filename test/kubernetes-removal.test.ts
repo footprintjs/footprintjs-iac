@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { buildPlan } from '../src/planner.ts';
 import { fingerprint } from '../src/util.ts';
 import type { JsonObject, Resource, ResourceAdapter, StackState } from '../src/types.ts';
+import { assessKubernetesChange } from '../src/providers/kubernetes-change.ts';
 
 test('Kubernetes field omissions and list identity removals fail before provider access', async () => {
   const resource: Resource = { id: 'app', provider: 'kubernetes', spec: {
@@ -12,6 +13,7 @@ test('Kubernetes field omissions and list identity removals fail before provider
   let observations = 0;
   const adapter: ResourceAdapter = {
     name: 'kubernetes',
+    assessChange: assessKubernetesChange,
     observe: async () => { observations++; return { exists: true, owned: true, fingerprint: fingerprint(resource.spec) }; },
     apply: async () => { throw new Error('Unexpected mutation'); },
     remove: async () => { throw new Error('Unexpected mutation'); },

@@ -2,13 +2,15 @@
 
 **Define infrastructure as a graph. Deploy, observe and explain every change.**
 
-A TypeScript infrastructure framework built on **FootPrint 12.1.0** and **Foottrace 1.15.0**. Alpha version **0.5.0-alpha.2** describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk. Native recorders also drive live deployment progress and checked output generation.
+A TypeScript infrastructure framework built on **FootPrint 12.1.0** and **Foottrace 1.15.0**. Alpha version **0.5.0-alpha.4** describes compute, storage and network before selecting implementations. A binding profile expands that intent into a resource graph; the engine plans changes, records reconciliation, recovers uncertain creates and supports saved replay/backwalk. Native recorders also drive live deployment progress and checked output generation.
 
 `footprintjs-iac` is the package name; **InfraChart** is its display name. This is an early alpha: public APIs may change between prereleases. Existing state directories, Kubernetes ownership annotations and field-manager names, local fixture image references and systemd markers retain their original `footprint-iac` identifiers so the naming change preserves recorded resource ownership.
 
 This is an executable prototype with a simulator, a Kubernetes adapter and recorded native artifact generation. The separate [InfraChart Lens](https://github.com/footprintjs/footprintjs-iac-lens) supplies a live system view and Flow Lens evidence inspection. This remains a single-machine foundation, not a production deployment service.
 
 Start with the [capability and wrapper guide](docs/CAPABILITIES.md). The [identity and permission guide](docs/IDENTITY.md) covers generic access policies, recorded authorization and the LDAP adapters. See [VALIDATION.md](VALIDATION.md) for current checks and the earlier completed real Neo Kubernetes trial. The [design notes](docs/DESIGN.md) define graph semantics and implementation boundaries.
+
+The [session store guide](docs/SESSION-STORES.md) shows how to bind the same read-only session declaration to Redis or PostgreSQL and test both locally.
 
 For another laptop, start with the [clone, setup and test guide](docs/SHARING.md). The [agent handoff](docs/NEO-AGENT-HANDOFF.md) is ready to forward with the repository link. The library repository is public; the separate Neo source repository requires GitHub read access.
 
@@ -18,8 +20,7 @@ CLI and Lens can share the same target, check policy and native controller
 ledger. Application-specific login, access and dependency adapters stay in the
 consumer. [Agent guidance](docs/agent-onboarding.md) and a
 [source-linked workflow map](docs/onboarding/README.md) explain where to change
-each part and how to verify it. Onboarding is in this source candidate; the
-previous npm alpha does not contain these exports.
+each part and how to verify it.
 
 For setup changes, the optional [version registry](src/onboarding-versions/README.md)
 records a configuration diff before explicit activation. Versions keep one
@@ -46,18 +47,14 @@ application containers into the registered cluster.
 
 ## Install the alpha
 
-Requires Node.js 24 or newer. Pin the preview version
-when adopting it in an application:
+Requires Node.js 24 or newer. Pin the preview version when adopting it in an
+application:
 
-The `0.5.0-alpha.2` source candidate has not been published to npm. Build and
-pack this checkout (`npm ci`, `npm run check`, `npm test`, `npm run build`,
-`npm pack`), then install the resulting archive in the consuming project.
-Neo and Lens pin a reviewed archive with its hash, so another laptop needs no
-developer-local source paths. Use their lockfiles with `npm ci`.
+```sh
+npm install --save-exact footprintjs-iac@0.5.0-alpha.4
+```
 
-The `alpha` distribution tag installs the previously published preview
-(`npm install footprintjs-iac@alpha`); it does not imply this checkout's new
-APIs are available in the registry.
+The `alpha` distribution tag follows the newest published preview.
 Use public package exports such as `footprintjs-iac`,
 `footprintjs-iac/deployment-strategy` and `footprintjs-iac/master/workflow`.
 Importing the library performs no deployment. Providers, private connection profiles,
@@ -93,28 +90,36 @@ Its [local SQLite adapter](docs/sqlite-migration.md) exercises real record trans
 with a cooperating single-host consumer; it does not migrate Neo's current data.
 
 ```ts
-import { system, artifact, ref } from 'footprintjs-iac/system';
-import { bindSystem, simulationProfile } from 'footprintjs-iac/binding';
+import { system, artifact, type StoreHandle, type ServiceHandle } from 'footprintjs-iac/system';
+import { bindSystem, simulationProfile, why } from 'footprintjs-iac/binding';
 
-const design = system('example')
-  .addNetwork('network', n => n.addSegment('backend'))
-  .addStorage('state', s => s
-    .addSessionStore('sessions', store => store
-      .sharing('shared').durability('persistent').expiration({ idle: '30m' }))
-    .addDataStore('history', store => store.retainOnRemoval()))
-  .addCompute('application', c => c.addService('api', service => service
+const app = system('example');
+let history!: StoreHandle;
+let api!: ServiceHandle;
+app.addStorage('state', state => {
+  history = state.dataStore('history', store => store.retainOnRemoval());
+});
+app.addCompute('application', application => {
+  api = application.service('api', service => service
     .program(artifact('api-program'))
-    .useNetwork(ref.network('network.backend'))
-    .useStorage(ref.store('state.sessions'), { access: 'readWrite' })
-    .useStorage(ref.store('state.history'), { access: 'read' })))
-  .build();
+    .uses(history, 'read'));
+});
+const design = app.build();
 
 const binding = bindSystem(design, simulationProfile({
   artifacts: { 'api-program': { executable: 'fixture-api' } },
 }));
-// Inspect binding.decisions, binding.mappings and binding.graph.
+console.log(why(binding, api, 'stores'));
 // engine.plan(binding.graph) / engine.apply(binding.graph) use the existing engine.
 ```
+
+Handles belong to their declaring system. The typed `.uses()` API uses the same graph
+representation as `.useStorage(ref.store(...), { access })`. Real adapters implement
+and test the requested data permissions for their own provider.
+`why()` reports the declaration or recipe default, selected rule, adapter and
+mapped fields. `whyPlanOperation()` explains the changed fields with explicit
+adapter mappings. A retained FootPrint graph accepts logical IDs or paths for
+historical explanations.
 
 The base contains three capability families. Identity/access and boundaries cross those families. Store purpose, data model, sharing, durability, expiration, retention and replication are separate properties. Recipe defaults are visible. Declaration and binding are synchronous; providers are touched only through the planner/engine.
 
@@ -556,6 +561,31 @@ Parallel result and progress publication uses one isolated scope adapter in `src
 Resource dependencies govern execution order. Recorded data and control dependencies explain a particular execution. Execution defaults to sequential order. Set `maxConcurrency` to run bounded topological batches concurrently; started siblings settle before the next batch. Pruning stays sequential in reverse dependency order.
 
 Adapters implement `observe`, `apply`, `remove` and `waitReady`. A target scope binds saved state to the configured provider target. A successful API send alone does not establish resource readiness.
+
+### Provider adapter inputs and outputs
+
+- Import `canonical`, `fingerprint` and `project` from `footprintjs-iac/core`.
+  When a provider returns extra fields, use
+  `fingerprint(project(liveSpec, resource.spec))` for the observation fingerprint.
+- `context.physicalId` carries the last known provider identifier. An adapter
+  can return `{ physicalId }` from `apply` so the engine saves a generated ID
+  before waiting for readiness. The adapter still verifies ownership and
+  handles recovery if a request returns no receipt.
+- Return non-secret JSON `attributes` from `observe`. A resource can use
+  `resourceAttribute('queue', 'arn')` as a value in its `spec` if it declares
+  `dependsOn: ['queue']`. Known values are included in the reviewed plan. When
+  the prerequisite needs to change first, the plan marks the dependent input as
+  deferred and resolves it from verified provider state before calling the
+  dependent adapter. These references are for engine execution. Synthesis
+  uses its own provider-native references.
+- Implement `assessChange(previous, desired)` to classify a managed change as
+  `update`, `replace` or `reject`. Replacement and rejection stop the operation
+  with a reason. A replacement requires a separately reviewed workflow.
+
+Resources with live attribute references use the standard resource lifecycle
+callbacks. Their resolved specs are passed to those callbacks after prerequisites
+settle. Custom native provider subflows are constructed when the plan's
+deployment chart is assembled.
 
 ## Recovery and lifecycle behavior
 

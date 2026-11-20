@@ -4,6 +4,7 @@ import { freeze } from '../graph/data.ts';
 import { assertExecutableGraph, validateInfraGraph } from '../graph/validation.ts';
 import type { InfraGraph } from '../graph/types.ts';
 import { errorMessage } from '../util.ts';
+import { hasResourceAttributes } from '../resource-attributes.ts';
 import { createSynthesisChart } from './create-synthesis-chart.ts';
 import { guardOutput } from './recorder.ts';
 import type { OutputArtifact, SynthesisEvidence, SynthesisOptions, SynthesisResult } from './types.ts';
@@ -16,6 +17,8 @@ export class SynthesisError extends Error {
 export async function synthesize(input: InfraGraph, options: SynthesisOptions): Promise<SynthesisResult> {
   const graph = validateInfraGraph(input);
   assertExecutableGraph(graph);
+  const liveInput = graph.resources.find(hasResourceAttributes);
+  if (liveInput) throw Error(`Synthesis cannot resolve live provider attributes for ${liveInput.id}`);
   if (!Array.isArray(options.outputs) || !options.outputs.length || options.outputs.length > 32) throw new Error('Synthesis requires 1..32 output adapters');
   if (new Set(options.outputs.map(output => output.id)).size !== options.outputs.length) throw new Error('Duplicate output adapter id');
   const outputs = options.outputs.map(output => guardOutput(output, graph));

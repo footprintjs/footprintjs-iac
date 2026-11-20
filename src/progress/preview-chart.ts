@@ -2,6 +2,7 @@ import { createApplyChart } from '../execution/create-apply-chart.ts';
 import { concurrencyLimit } from '../execution/schedule.ts';
 import { array, identifier, jsonCopy, keys, object, text } from '../graph/data.ts';
 import type { Plan } from '../types.ts';
+import { validateInputResolution } from '../resource-attributes.ts';
 import { readDeploymentSchedulePreview, type DeploymentSchedulePreview } from './preview.ts';
 
 /** Node-side construction of the same native topology as apply, without executing a stage or
@@ -15,7 +16,7 @@ export function previewDeploymentChart(plan: Plan, options: { maxConcurrency?: n
   const built = createApplyChart(detached, async () => { throw Error('A deployment preview cannot execute'); }, {}, limit, 'schedule-preview');
   return readDeploymentSchedulePreview({ version: 1, kind: 'deployment-schedule-preview', stack: detached.stack,
     ...(settings.graphDigest === undefined ? {} : { graphDigest: settings.graphDigest }),
-    structure: built.chart.buildTimeStructure, resources: built.resources });
+    structure: built.chart.buildTimeStructure, resources: built.resources.map(({ schedule: _schedule, ...resource }) => resource) });
 }
 
 function readPreviewPlan(input: unknown): Plan {
@@ -25,7 +26,7 @@ function readPreviewPlan(input: unknown): Plan {
   const ids = new Set<string>();
   for (const item of array(row.operations, 'preview operations')) {
     const operation = object(item, 'preview operation');
-    keys(operation, ['resource', 'action', 'desiredFingerprint', 'observed', 'operationId'], 'preview operation');
+    keys(operation, ['resource', 'action', 'desiredFingerprint', 'observed', 'operationId', 'inputResolution'], 'preview operation');
     const resource = object(operation.resource!, 'preview resource');
     keys(resource, ['id', 'provider', 'spec', 'dependsOn', 'lifecycle'], 'preview resource');
     const id = identifier(resource.id, 'preview resource ID');
@@ -34,6 +35,7 @@ function readPreviewPlan(input: unknown): Plan {
     object(resource.spec!, 'preview resource spec');
     if (resource.dependsOn !== undefined) for (const dependency of array(resource.dependsOn, 'preview dependencies')) identifier(dependency, 'preview dependency');
     if (!['create', 'update', 'verify', 'delete', 'noop'].includes(String(operation.action))) throw Error('Invalid preview action');
+    if (operation.inputResolution !== undefined) validateInputResolution(operation.inputResolution, operation.action);
   }
   return row as unknown as Plan;
 }

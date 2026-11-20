@@ -23,6 +23,10 @@ export class ExecutionScope extends AdapterFlowScope {
   publishProgress(resourceId: string, value: unknown): void {
     this.setGlobal(`progress:${resourceId}`, value);
   }
+
+  publishScheduleOutcome(resourceId: string, value: { kind: 'failure-gate'; resourceId?: string }): void {
+    this.setGlobal(`schedule-outcome:${resourceId}`, value);
+  }
 }
 
 export type ExecutionStage = (scope: ExecutionScope) => Promise<void> | void;

@@ -42,7 +42,7 @@ for (const maxConcurrency of [1, 2]) test(`preview uses the unchanged native con
   assert.equal(result.ok, true);
   const actual = recorder.getSnapshot().chart!;
   assert.deepEqual(preview.structure, actual.structure, 'the observed native topology has exactly the preview positions');
-  assert.deepEqual(preview.resources, actual.resources);
+  assert.deepEqual(preview.resources, actual.resources.map(({ schedule, ...binding }) => binding));
   assert.equal(actual.runId, result.runId);
   assert.notEqual(actual.runId, 'schedule-preview');
   assert.deepEqual(preview.resources.map(resource => resource.batchIndex), maxConcurrency === 1 ? [0, 1, 2] : [0, 0, 1]);
@@ -54,7 +54,7 @@ test('no-op and pruning previews retain the actual planned actions and serial de
   const noop = previewDeploymentChart(await engine.plan(graph), { maxConcurrency: 2, graphDigest: graph.digest });
   assert.ok(noop.resources.every(resource => resource.action === 'noop'));
   await engine.apply(graph);
-  assert.deepEqual(noop.resources, recorder.getSnapshot().chart!.resources);
+  assert.deepEqual(noop.resources, recorder.getSnapshot().chart!.resources.map(({ schedule, ...binding }) => binding));
   const smaller = compileGraph({ name: graph.name, boundaries: [], memberships: [], relations: [],
     resources: graph.resources.filter(resource => resource.id === 'directory') });
   const plan = await engine.plan(smaller, { prune: true });
@@ -63,7 +63,7 @@ test('no-op and pruning previews retain the actual planned actions and serial de
   const result = await engine.apply(smaller, { prune: true });
   assert.equal(result.ok, true);
   assert.deepEqual(preview.structure, recorder.getSnapshot().chart!.structure);
-  assert.deepEqual(preview.resources, recorder.getSnapshot().chart!.resources);
+  assert.deepEqual(preview.resources, recorder.getSnapshot().chart!.resources.map(({ schedule, ...binding }) => binding));
 });
 
 test('preview admission rejects fake run state, accessors and invalid native mappings without executing getters', async t => {

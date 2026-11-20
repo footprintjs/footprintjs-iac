@@ -1,5 +1,6 @@
 import type { Resource } from '../types.ts';
 import { readResourceLifecycle } from '../resource-lifecycle.ts';
+import { hasResourceAttributes } from '../resource-attributes.ts';
 import { array, freeze, identifier, jsonCopy, keys, object } from './data.ts';
 
 export function readResource(input: unknown): Resource {
@@ -24,6 +25,7 @@ export function validateDependencies(resources: readonly Resource[]): void {
   const waiting = new Map<string, number>();
   const dependents = new Map<string, string[]>();
   for (const row of resources) {
+    hasResourceAttributes(row);
     waiting.set(row.id, row.dependsOn?.length ?? 0);
     for (const source of row.dependsOn ?? []) {
       if (!byId.has(source)) throw new Error(`Unknown resource dependency: ${source}`);

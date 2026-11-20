@@ -1,3 +1,4 @@
+import type { CommunicationDetails } from '../graph/communication.ts';
 import type { AdapterFlowPhase, AdapterFlowStatus } from '../adapter-flow/types.ts';
 /** Safe declarative architecture. No addresses, credentials, commands or arbitrary icon URLs. */
 export type TopologyCategory = 'compute' | 'storage' | 'network' | 'identity' | 'other';
@@ -31,6 +32,7 @@ export interface TopologyNode {
     bindings: TopologyBindings;
 }
 export interface TopologyConnection {
+  details?: CommunicationDetails;
     id: string;
     from: string;
     to: string;

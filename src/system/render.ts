@@ -31,6 +31,7 @@ function viewGraph(input: SystemDesign) {
   const relations: Relation[] = design.relations.map(relation => ({
     from: relation.from, to: relation.to,
     kind: relation.kind === 'dependsOn' ? 'order' : 'communicatesWith',
+    ...(relation.details && { details: relation.details }),
     ...(relation.label === undefined ? {} : { label: relation.label }),
   }));
   return compileGraph({

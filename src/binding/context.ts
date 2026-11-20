@@ -1,5 +1,6 @@
 import { freeze, identifier } from '../graph/data.ts';
-import type { Capability, Principal, SystemDesign } from '../system/types.ts';
+import type { Capability, Principal, StorageAccess, StoreReference, SystemDesign } from '../system/types.ts';
+import type { JsonObject } from '../types.ts';
 import { fingerprint } from '../util.ts';
 import type { BindingProfile, CapabilityMapping, LoweringContext, SupportContext } from './types.ts';
 import { jsonObject } from './data.ts';
@@ -20,6 +21,15 @@ export function capabilityFor(design: SystemDesign, input: unknown): Capability 
 export function supportContext(design: SystemDesign, profile: BindingProfile): SupportContext {
   return freeze({
     profileId: profile.id, target: profile.target,
+    storeUses(store: StoreReference) {
+      const { path } = capabilityFor(design, store);
+      return design.capabilities.flatMap(workload => {
+        const uses = workload.properties.stores;
+        if (!Array.isArray(uses)) return [];
+        return (uses as JsonObject[]).filter(use => (use.ref as JsonObject).path === path)
+          .map(use => ({ workloadId: workload.id, kind: workload.kind, access: use.access as StorageAccess }));
+      }).sort((a, b) => a.workloadId.localeCompare(b.workloadId));
+    },
     artifact(input: unknown) {
       const row = jsonObject(input, 'artifact reference');
       if (row.kind !== 'artifact' || typeof row.id !== 'string') throw new Error('Invalid artifact reference');

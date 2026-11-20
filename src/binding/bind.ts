@@ -1,5 +1,6 @@
 import { freeze } from '../graph/data.ts';
 import { readSystemDesign } from '../system/validation.ts';
+import { designHandles, registerDesignHandles } from '../system/handles.ts';
 import { fingerprint } from '../util.ts';
 import type { SystemDesign } from '../system/types.ts';
 import { readProfile } from './profile.ts';
@@ -49,7 +50,8 @@ export function bindSystem(input: SystemDesign, inputProfile: BindingProfile): B
       groupId: 'capability-' + capability.id.slice(0, 80) + '-' + fingerprint({ capabilityId: capability.id }).slice(0, 16),
     };
     mappings.set(capability.id, freeze(mapping));
-    expanded.push({ mapping, resources: validated.lowering.resources, relations: validated.lowering.internalRelations ?? [] });
+    expanded.push({ mapping, resources: validated.lowering.resources, relations: validated.lowering.internalRelations ?? [],
+      propertyOrigins: validated.lowering.propertyOrigins ?? [] });
   }
   const graph = expandGraph(design, expanded, decisions);
   const body = {
@@ -59,5 +61,8 @@ export function bindSystem(input: SystemDesign, inputProfile: BindingProfile): B
     decisions: decisions.sort((a, b) => a.capabilityId.localeCompare(b.capabilityId)),
     mappings: [...mappings.values()].sort((a, b) => a.capabilityId.localeCompare(b.capabilityId)),
   };
-  return freeze({ ...body, digest: fingerprint(body) });
+  const binding = freeze({ ...body, digest: fingerprint(body) });
+  const handles = designHandles(input);
+  if (handles) registerDesignHandles(binding, handles);
+  return binding;
 }

@@ -1,9 +1,21 @@
 {
   "name": "footprintjs-iac",
-  "version": "0.5.0-alpha.2",
+  "version": "0.5.0-alpha.4",
   "type": "module",
   "description": "InfraChart: compute, storage and network design with recorded infrastructure reconciliation",
   "exports": {
+    "./session-store": {
+      "types": "./dist/src/session-store/index.d.ts",
+      "import": "./dist/src/session-store/index.js"
+    },
+    "./session-store/redis": {
+      "types": "./dist/src/session-store/redis.d.ts",
+      "import": "./dist/src/session-store/redis.js"
+    },
+    "./session-store/postgres": {
+      "types": "./dist/src/session-store/postgres.d.ts",
+      "import": "./dist/src/session-store/postgres.js"
+    },
     "./agent-platform": {
       "types": "./dist/src/agent-platform/index.d.ts",
       "import": "./dist/src/agent-platform/index.js"
@@ -328,6 +340,7 @@
     "dist/integration/identity"
   ],
   "scripts": {
+    "test:session-stores": "node --test integration/session-store/contract.test.ts",
     "check": "tsc --noEmit && node scripts/onboarding-blueprint.mjs --check",
     "context:onboarding": "node scripts/onboarding-blueprint.mjs",
     "context:onboarding:check": "node scripts/onboarding-blueprint.mjs --check",
@@ -358,7 +371,10 @@
     "yaml": "2.9.1"
   },
   "devDependencies": {
+    "@redis/client": "^5.12.4",
     "@types/node": "24.9.1",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1",
     "typescript": "5.9.3"
   },
   "repository": {

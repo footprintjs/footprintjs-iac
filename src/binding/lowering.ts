@@ -1,16 +1,17 @@
 import { compileGraph } from '../graph/compile.ts';
-import { array, keys, object } from '../graph/data.ts';
+import { array, identifier, keys, object } from '../graph/data.ts';
 import { readResource } from '../graph/resources.ts';
 import type { Relation } from '../graph/types.ts';
 import type { Capability } from '../system/types.ts';
 import type { JsonObject, Resource } from '../types.ts';
-import type { CapabilityAdapter, CapabilityMapping, LoweredCapability } from './types.ts';
+import { pointerParts, pointerValue } from './pointers.ts';
+import type { CapabilityAdapter, CapabilityMapping, LoweredCapability, LoweredPropertyOrigin } from './types.ts';
 
 export function validateLowering(
   input: unknown, capability: Capability, adapter: CapabilityAdapter, allocated: Set<string>,
 ): { lowering: LoweredCapability; entries: string[]; exits: string[] } {
   const row = object(input as never, 'lowered capability');
-  keys(row, ['resources', 'internalRelations'], 'lowered capability');
+  keys(row, ['resources', 'internalRelations', 'propertyOrigins'], 'lowered capability');
   const resources = array(row.resources, 'lowered resources').map(readResource);
   if (resources.length === 0 || resources.length > 256) throw new Error('A capability must lower to 1..256 resources');
   for (const resource of resources) {
@@ -39,7 +40,31 @@ export function validateLowering(
       }
     }
   }
-  return { lowering: { resources: fragment.resources, internalRelations: fragment.relations }, entries, exits };
+  const propertyOrigins = readPropertyOrigins(row.propertyOrigins, capability, fragment.resources);
+  return { lowering: { resources: fragment.resources, internalRelations: fragment.relations, propertyOrigins }, entries, exits };
 }
 
-export interface ExpandedCapability { mapping: CapabilityMapping; resources: Resource[]; relations: Relation[] }
+function readPropertyOrigins(input: unknown, capability: Capability, resources: Resource[]): LoweredPropertyOrigin[] {
+  if (input === undefined) return [];
+  const seen = new Set<string>();
+  return array(input as never, 'lowered property origins').map(value => {
+    const row = object(value, 'lowered property origin');
+    keys(row, ['property', 'resourceId', 'path'], 'lowered property origin');
+    const property = identifier(row.property, 'origin property');
+    const resourceId = identifier(row.resourceId, 'origin resource');
+    const resource = resources.find(entry => entry.id === resourceId);
+    const parts = typeof row.path === 'string' && pointerParts(row.path);
+    if (!Object.hasOwn(capability.properties, property) || !resource || !parts || pointerValue(resource.spec, parts) === undefined) {
+      throw new Error('Lowered property origin must point to a declared property and a field in its own resource');
+    }
+    const path = row.path as string;
+    const key = JSON.stringify([property, resourceId, path]);
+    if (seen.has(key)) throw new Error('Duplicate lowered property origin');
+    seen.add(key);
+    return { property, resourceId, path };
+  }).sort((a, b) => a.property.localeCompare(b.property) || a.resourceId.localeCompare(b.resourceId) || a.path.localeCompare(b.path));
+}
+
+export interface ExpandedCapability {
+  mapping: CapabilityMapping; resources: Resource[]; relations: Relation[]; propertyOrigins: LoweredPropertyOrigin[];
+}

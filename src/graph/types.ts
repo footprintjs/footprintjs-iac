@@ -16,7 +16,7 @@ export interface Boundary {
 }
 export interface Membership { resourceId: string; boundaryId: string }
 export type RelationKind = 'order' | 'data' | 'communicatesWith' | 'runsOn' | 'assumesRole';
-export interface Relation { from: string; to: string; kind: RelationKind; label?: string }
+export interface Relation { details?: import('./communication.ts').CommunicationDetails; from: string; to: string; kind: RelationKind; label?: string }
 
 /** Role boundaries describe architecture; they grant no IAM permissions. */
 export interface InfraGraph extends Stack {

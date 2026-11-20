@@ -4,3 +4,4 @@ export { readSystemTopologyView } from './view.ts';
 export { projectSystemTopology } from './project.ts';
 export { liveTopologyActions } from './actions.ts';
 export type { TopologyActionBinding, TopologyActionCapture, LiveTopologyActionInput } from './actions.ts';
+export type { CommunicationDetails } from '../graph/communication.ts';

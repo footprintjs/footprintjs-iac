@@ -1,3 +1,4 @@
+import { communicationFields, type CommunicationDetails } from '../graph/communication.ts';
 import type { JsonObject } from '../types.ts';
 import type { Boundary } from '../graph/types.ts';
 import { readBoundary } from '../graph/boundaries.ts';
@@ -9,6 +10,7 @@ import { DeclarationScope, invokeScope } from './scope.ts';
 import { compileSystem } from './compile.ts';
 import type { PendingMembership, PendingRelation } from './compile.ts';
 import { readReference, scopeName } from './references.ts';
+import { checkHandle, registerDesignHandles } from './handles.ts';
 import type { Capability, CapabilityReference, CapabilityRelation, Principal, SystemDesign } from './types.ts';
 
 export type SystemRecipe = (system: SystemBuilder) => SystemBuilder | void;
@@ -20,19 +22,20 @@ export class SystemBuilder extends DeclarationScope {
   private memberships: PendingMembership[] = [];
   private relations: PendingRelation[] = [];
   private groups = new Set<string>();
+  private handles = new Set<object>();
   private busy = false;
   private recipeDraft = false;
   private built: SystemDesign | undefined;
   constructor(name: string) { super(); this.name = identifier(name, 'system name'); }
 
   addCompute(name: string, callback: (compute: ComputeScope) => ComputeScope | void): this {
-    return this.addGroup(name, new ComputeScope(name), callback);
+    return this.addGroup(name, handles => new ComputeScope(name, handles), callback);
   }
   addStorage(name: string, callback: (storage: StorageScope) => StorageScope | void): this {
-    return this.addGroup(name, new StorageScope(name), callback);
+    return this.addGroup(name, handles => new StorageScope(name, handles), callback);
   }
   addNetwork(name: string, callback: (network: NetworkScope) => NetworkScope | void): this {
-    return this.addGroup(name, new NetworkScope(name), callback);
+    return this.addGroup(name, handles => new NetworkScope(name, handles), callback);
   }
   principal(id: string, properties: JsonObject = {}): this {
     this.assertMutable();
@@ -59,12 +62,12 @@ export class SystemBuilder extends DeclarationScope {
     }
     return this;
   }
-  connect(from: CapabilityReference, to: CapabilityReference, kind: CapabilityRelation['kind'], label?: string): this {
+  connect(from: CapabilityReference, to: CapabilityReference, kind: CapabilityRelation['kind'], label?: string, details?: CommunicationDetails): this {
     this.assertMutable();
     if (kind !== 'dependsOn' && kind !== 'communicatesWith') throw new Error('Invalid capability relation kind');
     const relation: PendingRelation = {
       from: this.capabilityRef(from), to: this.capabilityRef(to), kind,
-      ...(label === undefined ? {} : { label }),
+      ...(label === undefined ? {} : { label }), ...communicationFields(kind, details),
     };
     if (this.relations.some(row => row.from.path === relation.from.path && row.to.path === relation.to.path && row.kind === kind)) throw new Error('Duplicate capability relation');
     this.relations.push(relation);
@@ -82,13 +85,14 @@ export class SystemBuilder extends DeclarationScope {
     draft.capabilities = [...this.capabilities]; draft.principals = [...this.principals];
     draft.boundaries = [...this.boundaries]; draft.memberships = [...this.memberships];
     draft.relations = [...this.relations]; draft.groups = new Set(this.groups);
+    draft.handles = new Set(this.handles);
     draft.recipeDraft = true;
     this.busy = true;
     try {
       invokeScope(draft, recipe);
       this.capabilities = draft.capabilities; this.principals = draft.principals;
       this.boundaries = draft.boundaries; this.memberships = draft.memberships;
-      this.relations = draft.relations; this.groups = draft.groups;
+      this.relations = draft.relations; this.groups = draft.groups; this.handles = draft.handles;
     } finally { this.busy = false; }
     return this;
   }
@@ -101,6 +105,7 @@ export class SystemBuilder extends DeclarationScope {
       boundaries: this.boundaries, memberships: this.memberships, relations: this.relations,
     });
     this.built = design;
+    registerDesignHandles(design, this.handles);
     this.close();
     return design;
   }
@@ -109,21 +114,27 @@ export class SystemBuilder extends DeclarationScope {
     if (this.busy) throw new Error('Use the provided scoped builder inside a callback');
   }
   private capabilityRef(input: CapabilityReference): CapabilityReference {
+    checkHandle(this.handles, input);
     const reference = readReference(input);
     if (reference.kind === 'principal') throw new Error('Principal references are not capability references');
     return freeze(reference as CapabilityReference);
   }
-  private addGroup<T extends DeclarationScope & { snapshot(): Capability[] }>(name: string, scope: T, callback: (scope: T) => T | void): this {
+  private addGroup<T extends DeclarationScope & { snapshot(): Capability[] }>(
+    name: string, create: (handles: Set<object>) => T, callback: (scope: T) => T | void,
+  ): this {
     this.assertMutable();
     scopeName(name);
     if (this.groups.has(name)) throw new Error('Duplicate capability group');
     this.busy = true;
     try {
+      const handles = new Set(this.handles);
+      const scope = create(handles);
       invokeScope(scope, callback);
       const rows = scope.snapshot();
       if (!rows.length) throw new Error('Capability groups require at least one child declaration');
       this.capabilities.push(...rows);
       this.groups.add(name);
+      this.handles = handles;
     } finally { this.busy = false; }
     return this;
   }

@@ -1,3 +1,4 @@
+import { communicationFields } from '../graph/communication.ts';
 import { canonical } from '../util.ts';
 import { array, identifier, jsonCopy, keys, object, text } from '../graph/data.ts';
 import { readBoundary, validateBoundaryParents } from '../graph/boundaries.ts';
@@ -67,12 +68,12 @@ export function systemBody(input: unknown): SystemBody {
   unique(memberships.map(canonical), 'system membership');
   const relations = array(row.relations, 'system relations').map(value => {
     const item = object(value, 'capability relation');
-    keys(item, ['from', 'to', 'kind', 'label'], 'capability relation');
+    keys(item, ['from', 'to', 'kind', 'label', 'details'], 'capability relation');
     if (item.kind !== 'dependsOn' && item.kind !== 'communicatesWith') throw new Error('Invalid capability relation kind');
     const from = identifier(item.from, 'relation source'), to = identifier(item.to, 'relation target');
     if (!capabilityIds.has(from) || !capabilityIds.has(to)) throw new Error('Unknown capability relation endpoint');
-    return { from, to, kind: item.kind, ...(item.label === undefined ? {} : { label: text(item.label, 'relation label') }) } satisfies CapabilityRelation;
-  }).sort((a, b) => lexical(canonical(a), canonical(b)));
+    return { from, to, kind: item.kind, ...communicationFields(item.kind, item.details), ...(item.label === undefined ? {} : { label: text(item.label, 'relation label') }) } satisfies CapabilityRelation;
+  }).sort(({ details: _a, ...a }, { details: _b, ...b }) => lexical(canonical(a), canonical(b)));
   unique(relations.map(relationKey), 'capability relation');
   const required = inferredRelations(capabilities, principals);
   const present = new Set(relations.map(relationKey));

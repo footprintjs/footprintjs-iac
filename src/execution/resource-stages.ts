@@ -3,14 +3,17 @@ import { errorMessage } from '../util.ts';
 import type { ExecutionStage } from './scope.ts';
 import type { OperationExecutor, OperationResult } from './types.ts';
 import { recordProgress } from './progress.ts';
+import { recordFailureGate } from './schedule-evidence.ts';
+import type { ScheduleReasons } from '../progress/schedule-reasons.ts';
 
-export function loadDesiredStage(plan: Plan, runId: string): ExecutionStage {
+export function loadDesiredStage(plan: Plan, runId: string, schedules: ReadonlyMap<string, ScheduleReasons>): ExecutionStage {
   return scope => {
     scope.setValue('failed', false);
     scope.setValue('failure', null);
     for (const operation of plan.operations) {
       scope.setValue(`desired:${operation.resource.id}`, operation.resource.spec);
       scope.setValue(`plan:${operation.resource.id}`, operation.action);
+      scope.setValue(`schedule:${operation.resource.id}`, schedules.get(operation.resource.id));
       recordProgress(scope, runId, operation, 'pending');
     }
   };
@@ -22,6 +25,7 @@ export function reconcileResourceStage(operation: PlannedOperation, execute: Ope
     // Borrowed runtime values stay at this boundary; provider ports receive detached JSON.
     const spec = structuredClone(scope.getValue(`desired:${id}`)) as JsonObject;
     void scope.getValue(`plan:${id}`);
+    void scope.getValue(`schedule:${id}`);
     // Conservative scheduling context, not a claim that ordering alone proves semantic data use.
     for (const dependency of operation.resource.dependsOn ?? []) void scope.getValue(`result:${dependency}`);
     recordProgress(scope, runId, operation, 'deploying');
@@ -42,6 +46,7 @@ export function reconcileResourceStage(operation: PlannedOperation, execute: Ope
 
 export function skipResourceStage(operation: PlannedOperation, results: Record<string, unknown>, runId: string): ExecutionStage {
   return scope => {
+    recordFailureGate(scope, operation.resource.id);
     scope.publishResult(operation.resource.id, { status: 'skipped', reason: scope.failure });
     results[operation.resource.id] = { status: 'skipped' };
     recordProgress(scope, runId, operation, 'skipped', 'A preceding operation failed');

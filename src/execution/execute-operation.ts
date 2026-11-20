@@ -3,6 +3,8 @@ import { errorMessage, fingerprint } from '../util.ts';
 import { ExecutionPersistence, PersistenceError } from './persistence.ts';
 import type { OperationExecutor, OperationResult } from './types.ts';
 import { createNativeOperationChart } from './create-native-operation-chart.ts';
+import { checkpointIdentity, pendingResource, providerContext, readProviderObservation, verifiedResource } from './provider-state.ts';
+import { resolveOperationInputs } from './operation-inputs.ts';
 
 export interface OperationExecutionOptions {
   adapters: ReadonlyMap<string, ResourceAdapter>;
@@ -17,15 +19,20 @@ export interface OperationExecutionOptions {
 /** Resource lifecycle policy is independent of native chart construction and batch scheduling. */
 export function createOperationExecutor(options: OperationExecutionOptions): OperationExecutor {
   const execute:OperationExecutor=operation => executeOperation(operation, options);
-  execute.createFlow=(operation,results)=>operation.action!=='delete'&&(options.adapters.get(operation.resource.provider)?.createApplyFlow||options.adapters.get(operation.resource.provider)?.createVerifyFlow)
+  execute.createFlow=(operation,results)=>operation.action!=='delete'&&!operation.inputResolution
+    &&(options.adapters.get(operation.resource.provider)?.createApplyFlow||options.adapters.get(operation.resource.provider)?.createVerifyFlow)
     ?createNativeOperationChart(operation,options,results):undefined;
   return execute;
 }
 
-async function executeOperation(operation: PlannedOperation, options: OperationExecutionOptions): Promise<OperationResult> {
+async function executeOperation(planned: PlannedOperation, options: OperationExecutionOptions): Promise<OperationResult> {
   const { state, strategy, persistence, runId } = options;
-  const adapter = options.adapters.get(operation.resource.provider)!;
-  const context = { stack: state.stack, operationId: operation.operationId };
+  const adapter = options.adapters.get(planned.resource.provider)!;
+  const operation = resolveOperationInputs(planned, state, adapter);
+  const context = (observed?: Observation) => providerContext(state, operation.resource.id, operation.operationId, observed);
+  const observedAtPlan = operation.observed.exists && operation.observed.owned === true ? operation.observed : undefined;
+  const observe = async () => readProviderObservation(await adapter.observe(operation.resource, context(
+    state.resources[operation.resource.id]?.physicalId === undefined ? observedAtPlan : undefined)));
   const append = (event: 'begin' | 'observed' | 'complete' | 'failed', detail?: string) => persistence.append({
     event, runId, stack: state.stack, operationId: operation.operationId, resourceId: operation.resource.id,
     action: operation.action, at: new Date().toISOString(), ...(detail ? { detail } : {}),
@@ -36,16 +43,17 @@ async function executeOperation(operation: PlannedOperation, options: OperationE
     for (let attempt = 1; attempt <= strategy.maxAttempts; attempt++) {
       let observed: Observation | undefined;
       try {
-        observed = await adapter.observe(operation.resource, context);
+        observed = await observe();
         await append('observed', JSON.stringify(observed));
         if (observed.exists && observed.owned !== true) throw new Error(`Refusing unowned resource: ${operation.resource.id}`);
         if (operation.action === 'delete') {
-          if (observed.exists) await adapter.remove(operation.resource, context);
-          const after = await adapter.observe(operation.resource, context);
+          if (observed.exists) await adapter.remove(operation.resource, context(observed));
+          const after = await observe();
           if (after.exists) throw new Error(`Delete not confirmed: ${operation.resource.id}`);
           delete state.resources[operation.resource.id];
         } else {
           const old = state.resources[operation.resource.id];
+          let readyContext = context(observed.exists ? observed : undefined);
           const recoveredCreate = old?.pending?.action === 'create'
             && old.pending.operationId === operation.operationId
             && old.pending.desiredFingerprint === operation.desiredFingerprint;
@@ -56,18 +64,16 @@ async function executeOperation(operation: PlannedOperation, options: OperationE
           }
           if (!observed.exists || observed.fingerprint !== operation.desiredFingerprint
             || (old && old.fingerprint !== operation.desiredFingerprint && !recoveredCreate)) {
-            state.resources[operation.resource.id] = {
-              // A rejected addition must not turn restoration into an unsupported field removal.
-              resource: old?.resource ?? operation.resource, fingerprint: old?.fingerprint ?? '',
-              pending: { operationId: operation.operationId, action: observed.exists ? 'update' : 'create', desiredFingerprint: operation.desiredFingerprint },
-            };
+            state.resources[operation.resource.id] = pendingResource(old, operation, observed);
             await persistence.save(state); // Intent/inventory survives a killed provider call.
-            await adapter.apply(operation.resource, context);
+            const receipt = await adapter.apply(operation.resource, context());
+            await checkpointIdentity(receipt, state, operation.resource.id, persistence);
+            readyContext = context();
           }
-          await adapter.waitReady(operation.resource, context);
-          observed = await adapter.observe(operation.resource, context);
+          await adapter.waitReady(operation.resource, readyContext);
+          observed = await observe();
           if (!observed.exists || observed.owned !== true || observed.fingerprint !== fingerprint(operation.resource.spec)) throw new Error(`Provider did not converge: ${operation.resource.id}`);
-          state.resources[operation.resource.id] = { resource: operation.resource, fingerprint: operation.desiredFingerprint, ...(observed.physicalId ? { physicalId: observed.physicalId } : {}) };
+          state.resources[operation.resource.id] = verifiedResource(operation, observed, state.resources[operation.resource.id]);
         }
         await persistence.save(state);
         await append('complete', attempt > 1 ? 'Reconciled after an uncertain attempt' : undefined);
@@ -77,7 +83,7 @@ async function executeOperation(operation: PlannedOperation, options: OperationE
         if (error instanceof PersistenceError) throw error;
         if (error instanceof ReviewedCheckDriftError) break;
         let reconciled: Observation | undefined;
-        try { reconciled = await adapter.observe(operation.resource, context); }
+        try { reconciled = await observe(); }
         catch { /* A failed read leaves outcome unknown, never authoritative absence. */ }
         const effectConfirmed = operation.action === 'delete'
           ? reconciled?.exists === false
@@ -87,11 +93,11 @@ async function executeOperation(operation: PlannedOperation, options: OperationE
         if (effectConfirmed) {
           if (operation.action === 'delete') delete state.resources[operation.resource.id];
           else {
-            await adapter.waitReady(operation.resource, context);
+            await adapter.waitReady(operation.resource, context(reconciled));
             // The recovery observation preceded readiness; confirm the resource again before checkpointing.
-            reconciled = await adapter.observe(operation.resource, context);
+            reconciled = await observe();
             if (!reconciled.exists || reconciled.owned !== true || reconciled.fingerprint !== fingerprint(operation.resource.spec)) throw new Error(`Provider did not converge: ${operation.resource.id}`);
-            state.resources[operation.resource.id] = { resource: operation.resource, fingerprint: operation.desiredFingerprint, ...(reconciled?.physicalId ? { physicalId: reconciled.physicalId } : {}) };
+            state.resources[operation.resource.id] = verifiedResource(operation, reconciled, state.resources[operation.resource.id]);
           }
           await persistence.save(state);
           await append('complete', `Reconciled after error: ${errorMessage(error)}`);

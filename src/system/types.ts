@@ -1,3 +1,4 @@
+import type { CommunicationDetails } from '../graph/communication.ts';
 import type { JsonObject } from '../types.ts';
 import type { Boundary } from '../graph/types.ts';
 
@@ -30,6 +31,7 @@ export interface Capability {
 export interface Principal { id: string; path: string; properties: JsonObject }
 export interface CapabilityMembership { capabilityId: string; boundaryId: string }
 export interface CapabilityRelation {
+  details?: CommunicationDetails;
   from: string;
   to: string;
   kind: 'dependsOn' | 'communicatesWith';
